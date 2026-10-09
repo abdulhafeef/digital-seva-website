@@ -21,6 +21,8 @@ const translations = {
             faq: "FAQ",
             contact: "Contact",
             themeToggle: "Toggle theme",
+            themeToDark: "Switch to dark theme",
+            themeToLight: "Switch to light theme",
             langSelector: "Language selector",
             ctaWhatsApp: "WhatsApp Assistance",
             menuToggle: "Toggle navigation menu"
@@ -311,6 +313,8 @@ const translations = {
             faq: "ಪ್ರಶ್ನೋತ್ತರಗಳು",
             contact: "ಸಂಪರ್ಕ",
             themeToggle: "ಥೀಮ್ ಬದಲಾಯಿಸಿ",
+            themeToDark: "ಡಾರ್ಕ್ ಥೀಮ್‌ಗೆ ಬದಲಾಯಿಸಿ",
+            themeToLight: "ಲೈಟ್ ಥೀಮ್‌ಗೆ ಬದಲಾಯಿಸಿ",
             langSelector: "ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ",
             ctaWhatsApp: "ವಾಟ್ಸಾಪ್ ಸಹಾಯ",
             menuToggle: "ಮೆನು ತೆರೆಯಿರಿ / ಮುಚ್ಚಿ"

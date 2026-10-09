@@ -7,6 +7,8 @@
    1. Design Tokens & Theme Variables
    -------------------------------------------------------- */
 :root {
+    color-scheme: light;
+
     /* --- Light Mode (Default for new visitors) ---
        Warm near-white, dignified sapphire blue, amber gold, emerald */
     --bg-primary: #faf9f5;
@@ -76,6 +78,8 @@
 /* --- Dark Mode Theme Tokens ---
    Deep midnight navy-slate, luminous accents, high contrast */
 [data-theme="dark"] {
+    color-scheme: dark;
+
     --bg-primary: #0a101d;
     --bg-surface: #111a2e;
     --bg-surface-hover: #192642;
@@ -106,9 +110,10 @@
     --danger-color: #ef4444;
     --danger-surface: rgba(239, 68, 68, 0.14);
 
+    /* Luminous midnight accents - avoids yellow/green blend over dark background */
     --orb-1-color: rgba(59, 130, 246, 0.12);
-    --orb-2-color: rgba(251, 191, 36, 0.08);
-    --orb-3-color: rgba(16, 185, 129, 0.08);
+    --orb-2-color: rgba(99, 102, 241, 0.08);
+    --orb-3-color: rgba(14, 165, 233, 0.08);
 
     --nav-bg: rgba(10, 16, 29, 0.94);
     --nav-border: #1e2f4d;
@@ -133,6 +138,12 @@ html {
     scroll-behavior: smooth;
     overflow-x: hidden;
     font-size: 16px;
+    background-color: var(--bg-primary);
+    color-scheme: light;
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
 }
 
 body {
@@ -471,11 +482,14 @@ select:focus-visible {
     transform: rotate(15deg);
 }
 
-.sun-icon { display: block; font-size: 1.05rem; }
-.moon-icon { display: none; font-size: 1.05rem; }
+/* Theme Toggle Icons - Icon reflects the action to be performed:
+   In light mode: shows moon (action: switch to dark)
+   In dark mode: shows sun (action: switch to light) */
+.sun-icon { display: none; font-size: 1.05rem; }
+.moon-icon { display: block; font-size: 1.05rem; }
 
-[data-theme="dark"] .sun-icon { display: none; }
-[data-theme="dark"] .moon-icon { display: block; }
+[data-theme="dark"] .sun-icon { display: block; }
+[data-theme="dark"] .moon-icon { display: none; }
 
 /* Hamburger Button */
 .nav-toggle {
@@ -927,7 +941,7 @@ select:focus-visible {
 .skill-category:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-hover);
-    border-color: rgba(30, 64, 175, 0.3);
+    border-color: var(--border-hover);
 }
 
 .skill-icon {
@@ -1651,7 +1665,7 @@ select:focus-visible {
 
 .transparency-box {
     background: var(--primary-surface);
-    border: 1px solid rgba(30, 64, 175, 0.2);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 16px 24px;
     text-align: center;
