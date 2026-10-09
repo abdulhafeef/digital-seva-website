@@ -1,0 +1,19 @@
+# robots.txt for Digital Seva
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: /sitemap.xml
+
+# Allow all major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Disallow crawling of internal/private files
+Disallow: /.git/
+Disallow: /node_modules/
+Disallow: /*.md$

@@ -1,0 +1,277 @@
+<!--
+ * Digital Seva Website
+ * Base template licensed under MIT License - Copyright (c) 2025 Kiran Badave
+ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Inline anti-flash theme & language initialization -->
+    <script>
+        (function() {
+            var savedTheme = localStorage.getItem('theme');
+            if (!savedTheme) {
+                savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
+            var savedLang = localStorage.getItem('language') || 'en';
+            document.documentElement.setAttribute('lang', savedLang);
+        })();
+    </script>
+    
+    <!-- Primary Meta Tags -->
+    <title>Digital Seva | Online Application Assistance</title>
+    <meta name="title" content="Digital Seva | Online Application Assistance">
+    <meta name="description" content="Dedicated online application assistance for government and citizen services: PAN Card, Voter ID, Aadhaar address correction, Passport, Income and Caste certificates, Scholarships, and more.">
+    <meta name="keywords" content="Digital Seva, Online Application Assistance, PAN Card, Voter ID, Aadhaar Address Correction, Indian Passport, Income Certificate, Caste Certificate, Scholarships, Citizen Services">
+    <meta name="author" content="Digital Seva">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Digital Seva | Online Application Assistance">
+    <meta property="og:description" content="Dedicated online application assistance for government and citizen services.">
+    <meta property="og:site_name" content="Digital Seva">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary">
+    <meta property="twitter:title" content="Digital Seva | Online Application Assistance">
+    <meta property="twitter:description" content="Dedicated online application assistance for government and citizen services.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/digital-seva-icon.svg">
+    
+    <!-- Google Fonts: Inter, Space Grotesk, Noto Sans Kannada -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Custom Cursor follower -->
+    <div class="cursor-dot" data-cursor-dot></div>
+    <div class="cursor-outline" data-cursor-outline></div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-container">
+            <a href="#home" class="nav-logo">
+                <img src="assets/digital-seva-icon.svg" alt="" class="nav-logo-icon" width="32" height="32" aria-hidden="true">
+                <span data-i18n="site.name">Digital Seva</span>
+            </a>
+            
+            <div class="nav-menu">
+                <a href="#home" class="nav-link" data-i18n="nav.home">Home</a>
+                <a href="#services" class="nav-link" data-i18n="nav.services">Services</a>
+                <a href="#about" class="nav-link" data-i18n="nav.about">About</a>
+                <a href="#contact" class="nav-link" data-i18n="nav.contact">Contact</a>
+            </div>
+            
+            <div class="nav-controls">
+                <!-- Language Switcher (EN | ಕನ್ನಡ) -->
+                <div class="lang-switch" role="group" aria-label="Language selector" data-i18n-attr="aria-label:nav.langSelector">
+                    <button class="lang-btn active" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
+                    <button class="lang-btn" id="lang-kn" data-lang="kn" aria-pressed="false">ಕನ್ನಡ</button>
+                </div>
+
+                <!-- Theme Toggle -->
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" data-i18n-attr="aria-label:nav.themeToggle">
+                    <span class="theme-icon sun-icon" aria-hidden="true">☀️</span>
+                    <span class="theme-icon moon-icon" aria-hidden="true">🌙</span>
+                </button>
+            </div>
+            
+            <button class="nav-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-background">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-image">
+                    <div class="profile-image-wrapper">
+                        <img src="assets/digital-seva-icon.svg" alt="Digital Seva Emblem" class="profile-image" width="210" height="210">
+                        <div class="profile-ring"></div>
+                    </div>
+                </div>
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        <span class="hero-greeting" data-i18n="hero.greeting">Welcome to</span>
+                        <span class="hero-name" data-i18n="hero.name">Digital Seva</span>
+                    </h1>
+                    <p class="hero-subtitle" data-i18n="hero.subtitle">Online Application Assistance</p>
+                    <p class="hero-description" data-i18n="hero.description">
+                        Dedicated assistance with government and citizen online applications, document preparation guidance, and prompt submission support.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="#services" class="btn btn-primary" data-i18n="hero.ctaServices">Our Services</a>
+                        <a href="#contact" class="btn btn-secondary" data-i18n="hero.ctaContact">Get In Touch</a>
+                        <a href="https://wa.me/918660847792" class="btn btn-whatsapp" target="_blank" rel="noopener" data-i18n="hero.ctaWhatsApp">WhatsApp Us</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <span data-i18n="hero.scrollDown">Scroll Down</span>
+            <div class="scroll-line"></div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services" class="skills">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="services.tag">Citizen Services</span>
+                <h2 class="section-title" data-i18n="services.title">Online Application Services</h2>
+            </div>
+            <div class="skills-grid">
+                <div class="skill-category">
+                    <div class="skill-icon">💳</div>
+                    <h3 data-i18n="services.items.pan.title">PAN Card — New & Correction</h3>
+                    <p data-i18n="services.items.pan.desc">Assistance with new PAN card applications (Form 49A) and corrections or updates to existing PAN details (name, date of birth, photo, and signature).</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">🗳️</div>
+                    <h3 data-i18n="services.items.voter.title">Voter ID — New & Correction</h3>
+                    <p data-i18n="services.items.voter.desc">Assistance with new voter registration (Form 6), shifting of residence, and correction of entries in the electoral roll (Form 8).</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">🆔</div>
+                    <h3 data-i18n="services.items.aadhaar.title">Aadhaar Address Correction Assistance</h3>
+                    <p data-i18n="services.items.aadhaar.desc">Guidance and online application assistance for demographic address updates with valid address proofs or authorized standard certificate.</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">🛂</div>
+                    <h3 data-i18n="services.items.passport.title">Indian Passport — Fresh & Correction/Renewal</h3>
+                    <p data-i18n="services.items.passport.desc">Application assistance for fresh Indian passport, passport re-issue/renewal, document verification guidance, and appointment booking.</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">📜</div>
+                    <h3 data-i18n="services.items.income.title">Income Certificate Application Assistance</h3>
+                    <p data-i18n="services.items.income.desc">Assistance for obtaining official state income certificates through civic portals for academic admissions, fee concessions, and welfare schemes.</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">📑</div>
+                    <h3 data-i18n="services.items.caste.title">Caste Certificate Application Assistance</h3>
+                    <p data-i18n="services.items.caste.desc">Application facilitation for category and caste certificates through state citizen portals for educational and official benefits.</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">🎓</div>
+                    <h3 data-i18n="services.items.scholarship.title">Scholarship Applications</h3>
+                    <p data-i18n="services.items.scholarship.desc">Assistance with State Scholarship Portal (SSP) and National Scholarship Portal (NSP) applications for eligible students.</p>
+                </div>
+                <div class="skill-category">
+                    <div class="skill-icon">💻</div>
+                    <h3 data-i18n="services.items.more.title">More Online Applications</h3>
+                    <p data-i18n="services.items.more.desc">Assistance with various citizen service portals, driving licenses, ration card corrections, and official online welfare submissions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="about.tag">About</span>
+                <h2 class="section-title" data-i18n="about.title">About Digital Seva</h2>
+            </div>
+            <div class="about-content">
+                <div class="about-text">
+                    <p class="about-description" data-i18n="about.desc1">
+                        Digital Seva is a dedicated online application facilitation and assistance portal. We assist citizens in preparing required documents, filling out digital application forms correctly, and navigating complex official portals.
+                    </p>
+                    <p class="about-description" data-i18n="about.desc2">
+                        Whether you need a new PAN card, voter registration, Aadhaar address correction, passport assistance, or state certificates, we provide step-by-step guidance to ensure your applications are processed smoothly.
+                    </p>
+                    <div class="about-info">
+                        <div class="info-item">
+                            <span class="info-label" data-i18n="about.serviceTypeLabel">Service Type</span>
+                            <span class="info-value" data-i18n="about.serviceTypeValue">Online Citizen Application Assistance</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label" data-i18n="about.phoneLabel">Phone Support</span>
+                            <span class="info-value">+91 8660847792</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label" data-i18n="about.emailLabel">Email Support</span>
+                            <span class="info-value">digitalseva7051@gmail.com</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label" data-i18n="about.directContactLabel">Direct Contact</span>
+                            <span class="info-value">
+                                <a href="https://wa.me/918660847792" target="_blank" rel="noopener" data-i18n="about.whatsappLink">WhatsApp Support</a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag" data-i18n="contact.tag">Get In Touch</span>
+                <h2 class="section-title" data-i18n="contact.title">Contact Us</h2>
+            </div>
+            <div class="contact-content">
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <div class="contact-icon">📱</div>
+                        <div class="contact-details">
+                            <h3 data-i18n="contact.phoneTitle">Phone</h3>
+                            <a href="tel:+918660847792">+91 8660847792</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <div class="contact-icon">💬</div>
+                        <div class="contact-details">
+                            <h3 data-i18n="contact.whatsappTitle">WhatsApp</h3>
+                            <a href="https://wa.me/918660847792" target="_blank" rel="noopener">+91 8660847792</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <div class="contact-icon">📧</div>
+                        <div class="contact-details">
+                            <h3 data-i18n="contact.emailTitle">Email</h3>
+                            <a href="mailto:digitalseva7051@gmail.com">digitalseva7051@gmail.com</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 <span data-i18n="site.name">Digital Seva</span>. <span data-i18n="footer.rights">All rights reserved.</span></p>
+            <p data-i18n="footer.subtitle">Online Application Assistance Portal</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="translations.js"></script>
+    <script src="data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
