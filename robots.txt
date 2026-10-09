@@ -1,19 +1,28 @@
 # robots.txt for Digital Seva
+# https://github.com/abdulhafeef/digital-seva-website
 
 User-agent: *
 Allow: /
-
-# Sitemap location
-Sitemap: /sitemap.xml
-
-# Allow all major search engines
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-# Disallow crawling of internal/private files
+Disallow: /admin.html
+Disallow: /api/
+Disallow: /uploads/
 Disallow: /.git/
 Disallow: /node_modules/
 Disallow: /*.md$
+Disallow: /*.json$
+
+# Allow verified crawlers
+User-agent: Googlebot
+Allow: /
+Disallow: /admin.html
+Disallow: /api/
+Disallow: /uploads/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin.html
+Disallow: /api/
+Disallow: /uploads/
+
+# Sitemap location
+Sitemap: /sitemap.xml

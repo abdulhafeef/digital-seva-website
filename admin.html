@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Seva | Owner Management Portal</title>
+    <link rel="icon" type="image/svg+xml" href="assets/digital-seva-icon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-wrap {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 24px;
+        }
+        .admin-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: var(--shadow-md);
+        }
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .login-box {
+            max-width: 440px;
+            margin: 80px auto;
+        }
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+        }
+        .admin-table th, .admin-table td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .admin-table th {
+            background: var(--bg-subtle);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .admin-table tr:hover {
+            background: var(--bg-surface-hover);
+        }
+        .doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary-surface);
+            color: var(--primary-color);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            text-decoration: none;
+            margin: 3px 2px;
+            font-weight: 500;
+        }
+        .doc-chip:hover {
+            border-color: var(--primary-color);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            padding: 16px 20px;
+            border-radius: 8px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            font-family: var(--font-heading);
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .badge-ref {
+            font-family: monospace;
+            font-weight: 600;
+            background: var(--bg-subtle);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrap">
+        <!-- Login Section -->
+        <div id="loginSection" class="admin-card login-box">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <img src="assets/digital-seva-icon.svg" alt="Digital Seva" width="56" height="56">
+                <h1 style="font-size: 1.4rem; margin-top: 12px; font-family: var(--font-heading);">Owner Portal Login</h1>
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">Enter your admin secret key to view enquiries & private documents</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="adminKey" class="form-label">Admin Secret Key</label>
+                    <input type="password" id="adminKey" class="form-input" placeholder="Enter key (e.g. from .env)" required>
+                </div>
+                <div id="loginError" style="color: #dc2626; font-size: 0.88rem; margin-bottom: 14px; display: none;"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Access Portal</button>
+                <div style="margin-top: 16px; text-align: center;">
+                    <a href="/" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">&larr; Back to Website</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Dashboard Section (Hidden by default) -->
+        <div id="dashboardSection" class="admin-card" style="display: none;">
+            <div class="admin-header">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img src="assets/digital-seva-icon.svg" alt="Digital Seva" width="44" height="44">
+                    <div>
+                        <h1 style="font-size: 1.3rem; font-family: var(--font-heading);">Digital Seva — Owner Dashboard</h1>
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">Private Enquiries & Customer Upload Management</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="refreshBtn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.88rem;">Refresh</button>
+                    <button id="logoutBtn" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.88rem;">Logout</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div id="totalCount" class="stat-value">0</div>
+                    <div class="stat-label">Total Customer Enquiries</div>
+                </div>
+                <div class="stat-card">
+                    <div id="totalDocs" class="stat-value">0</div>
+                    <div class="stat-label">Uploaded Documents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" style="font-size: 1.1rem; padding-top: 8px; color: var(--success-color);">Private & Secure</div>
+                    <div class="stat-label">Storage: uploads/ (Out of Git)</div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Ref ID</th>
+                            <th>Date / Time</th>
+                            <th>Customer Name</th>
+                            <th>Phone</th>
+                            <th>Service & Variant</th>
+                            <th>Customer Notes</th>
+                            <th>Documents</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enquiriesTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading enquiries...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('loginSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const loginForm = document.getElementById('loginForm');
+        const adminKeyInput = document.getElementById('adminKey');
+        const loginError = document.getElementById('loginError');
+        const enquiriesTableBody = document.getElementById('enquiriesTableBody');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const totalCountEl = document.getElementById('totalCount');
+        const totalDocsEl = document.getElementById('totalDocs');
+
+        let authToken = sessionStorage.getItem('ds_admin_token') || '';
+
+        if (authToken) {
+            checkAuthAndLoad();
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const key = adminKeyInput.value.trim();
+            loginError.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: key })
+                });
+                const data = await res.json();
+                if (data.success && data.token) {
+                    authToken = data.token;
+                    sessionStorage.setItem('ds_admin_token', authToken);
+                    checkAuthAndLoad();
+                } else {
+                    loginError.textContent = data.error || 'Invalid credentials.';
+                    loginError.style.display = 'block';
+                }
+            } catch (err) {
+                loginError.textContent = 'Server connection failed.';
+                loginError.style.display = 'block';
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('ds_admin_token');
+            authToken = '';
+            loginSection.style.display = 'block';
+            dashboardSection.style.display = 'none';
+        });
+
+        refreshBtn.addEventListener('click', loadEnquiries);
+
+        async function checkAuthAndLoad() {
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
+            await loadEnquiries();
+        }
+
+        async function loadEnquiries() {
+            try {
+                const res = await fetch('/api/admin/enquiries', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) {
+                    sessionStorage.removeItem('ds_admin_token');
+                    loginSection.style.display = 'block';
+                    dashboardSection.style.display = 'none';
+                    return;
+                }
+                const data = await res.json();
+                if (data.success && Array.isArray(data.enquiries)) {
+                    renderEnquiries(data.enquiries);
+                }
+            } catch (err) {
+                enquiriesTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #dc2626;">Error loading enquiries from backend.</td></tr>`;
+            }
+        }
+
+        function renderEnquiries(list) {
+            totalCountEl.textContent = list.length;
+            let docCount = 0;
+            list.forEach(item => {
+                if (item.files) docCount += item.files.length;
+            });
+            totalDocsEl.textContent = docCount;
+
+            if (list.length === 0) {
+                enquiriesTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 36px;">No enquiries received yet.</td></tr>`;
+                return;
+            }
+
+            enquiriesTableBody.innerHTML = list.map(item => {
+                const date = new Date(item.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                const docsHtml = (item.files && item.files.length > 0)
+                    ? item.files.map(f => `
+                        <a href="/api/admin/document/${item.enquiryId}/${f.storedFilename}?token=${encodeURIComponent(authToken)}"
+                           target="_blank" class="doc-chip" title="Size: ${(f.sizeBytes / 1024).toFixed(1)} KB">
+                           📄 ${escapeHtml(f.originalName)}
+                        </a>
+                      `).join('')
+                    : '<span style="color: var(--text-muted); font-size: 0.82rem;">None</span>';
+
+                return `
+                    <tr>
+                        <td><span class="badge-ref">${escapeHtml(item.enquiryId)}</span></td>
+                        <td style="white-space: nowrap;">${date}</td>
+                        <td style="font-weight: 600;">${escapeHtml(item.name)}</td>
+                        <td>
+                            <a href="tel:${escapeHtml(item.phone)}" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">+91 ${escapeHtml(item.phone)}</a>
+                            <br>
+                            <a href="https://wa.me/91${escapeHtml(item.phone)}" target="_blank" style="color: var(--success-color); font-size: 0.8rem; text-decoration: none;">💬 WhatsApp</a>
+                        </td>
+                        <td>
+                            <strong>${escapeHtml(item.service.toUpperCase())}</strong><br>
+                            <small style="color: var(--text-muted);">${escapeHtml(item.variant || 'Standard')}</small>
+                        </td>
+                        <td style="max-width: 220px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(item.notes || '—')}</td>
+                        <td>${docsHtml}</td>
+                        <td>
+                            <button onclick="deleteEnquiry('${item.enquiryId}')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: #dc2626;">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function deleteEnquiry(enquiryId) {
+            if (!confirm(`Are you sure you want to permanently delete enquiry ${enquiryId} and its associated files?`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/enquiry/${enquiryId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadEnquiries();
+                } else {
+                    alert(data.error || 'Failed to delete');
+                }
+            } catch {
+                alert('Connection error');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+    </script>
+</body>
+</html>
