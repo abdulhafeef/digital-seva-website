@@ -1,0 +1,19 @@
+{
+  "name": "digital-seva-website",
+  "version": "1.0.0",
+  "description": "Digital Seva - Online Application Assistance Platform",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/test_suite.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "nodemailer": "^10.1.0"
+  },
+  "author": "Digital Seva",
+  "license": "MIT"
+}

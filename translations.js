@@ -187,7 +187,7 @@ const translations = {
             removeFileBtn: "Remove",
             submitBtn: "Submit Enquiry",
             submittingBtn: "Submitting Enquiry...",
-            privacyConsentText: "I agree to Digital Seva storing my contact details and optional documents confidentially for the purpose of application assistance. Digital Seva will not share my details with third parties.",
+            privacyConsentText: "I consent to Digital Seva collecting my name, phone number, and optional documents solely to assist with my civic application. Records are accessible only to authorized Digital Seva staff and are automatically purged after 90 days (or upon manual request). No data is shared with third parties.",
             successTitle: "Enquiry Received Successfully!",
             successMessage: "Thank you for contacting Digital Seva. Your enquiry has been safely received. A representative will review your request and get in touch with you shortly.",
             successRefPrefix: "Reference ID:",
@@ -292,7 +292,7 @@ const translations = {
             legalTitle: "Transparency & Legal",
             disclaimerTitle: "Official Disclaimer",
             disclaimerText: "Digital Seva is an independent private application facilitation initiative. We are NOT affiliated with, sponsored by, or endorsed by any government department or UIDAI. Official government decisions, verification, and certificate issuances remain solely with the respective government authorities.",
-            privacyNotice: "Privacy Notice: Customer details and optional document uploads are collected solely for providing requested application assistance and are handled confidentially.",
+            privacyNotice: "Privacy Notice: Customer contact details and optional uploaded documents are collected solely to assist with civic application preparation. Records are held confidentially, accessible only to authorized personnel, and retained for up to 90 days before automatic deletion.",
             templateNotice: "Base UI template licensed under MIT License — Copyright © 2025 Kiran Badave.",
             attributionLink: "MIT License Notice"
         }
@@ -479,7 +479,7 @@ const translations = {
             removeFileBtn: "ತೆಗೆದುಹಾಕಿ",
             submitBtn: "ವಿಚಾರಣೆ ಸಲ್ಲಿಸಿ",
             submittingBtn: "ಸಲ್ಲಿಸಲಾಗುತ್ತಿದೆ...",
-            privacyConsentText: "ಅರ್ಜಿ ಸಹಾಯದ ಉದ್ದೇಶಕ್ಕಾಗಿ ಡಿಜಿಟಲ್ ಸೇವಾ ನನ್ನ ವಿವರಗಳು ಮತ್ತು ಐಚ್ಛಿಕ ದಾಖಲೆಗಳನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಸಂಗ್ರಹಿಸಲು ನಾನು ಸಮ್ಮತಿಸುತ್ತೇನೆ. ನನ್ನ ವಿವರಗಳನ್ನು ಇತರರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುವುದಿಲ್ಲ.",
+            privacyConsentText: "ನನ್ನ ಅರ್ಜಿ ಸಹಾಯಕ್ಕಾಗಿ ಮಾತ್ರ ನನ್ನ ಹೆಸರು, ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಮತ್ತು ಐಚ್ಛಿಕ ದಾಖಲೆಗಳನ್ನು ಡಿಜಿಟಲ್ ಸೇವಾ ಸಂಗ್ರಹಿಸಲು ನಾನು ಸಮ್ಮತಿಸುತ್ತೇನೆ. ಈ ವಿವರಗಳನ್ನು ಕೇವಲ ಅಧಿಕೃತ ಸಿಬ್ಬಂದಿ ಮಾತ್ರ ನಿರ್ವಹಿಸುತ್ತಾರೆ ಮತ್ತು 90 ದಿನಗಳ ನಂತರ (ಅಥವಾ ವಿನಂತಿಯ ಮೇರೆಗೆ) ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅಳಿಸಲಾಗುತ್ತದೆ. ಯಾವುದೇ ಮಾಹಿತಿಯನ್ನು ಇತರರಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗುವುದಿಲ್ಲ.",
             successTitle: "ವಿಚಾರಣೆ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಕೆಯಾಗಿದೆ!",
             successMessage: "ಡಿಜಿಟಲ್ ಸೇವಾವನ್ನು ಸಂಪರ್ಕಿಸಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ವಿನಂತಿಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ನಮ್ಮ ಪ್ರತಿನಿಧಿ ಶೀಘ್ರದಲ್ಲೇ ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುತ್ತಾರೆ.",
             successRefPrefix: "ಉಲ್ಲೇಖ ಸಂಖ್ಯೆ:",
@@ -584,7 +584,7 @@ const translations = {
             legalTitle: "ಪಾರದರ್ಶಕತೆ ಮತ್ತು ನಿಯಮಗಳು",
             disclaimerTitle: "ಅಧಿಕೃತ ಸ್ಪಷ್ಟೀಕರಣ",
             disclaimerText: "ಡಿಜಿಟಲ್ ಸೇವಾ ಸ್ವತಂತ್ರ ಖಾಸಗಿ ನಾಗರಿಕ ಅರ್ಜಿ ಸಹಾಯ ಕೇಂದ್ರವಾಗಿದೆ. ನಾವು ಯಾವುದೇ ಸರ್ಕಾರಿ ಇಲಾಖೆ ಅಥವಾ UIDAI ನೊಂದಿಗೆ ಸಂಯೋಜಿತವಾಗಿಲ್ಲ. ಅಧಿಕೃತ ಸರ್ಕಾರಿ ನಿರ್ಧಾರಗಳು, ದಾಖಲೆ ಪರಿಶೀಲನೆ ಮತ್ತು ಪ್ರಮಾಣಪತ್ರ ವಿತರಣೆಗಳು ಸಂಬಂಧಪಟ್ಟ ಸರ್ಕಾರಿ ಪ್ರಾಧಿಕಾರಗಳ ಅಧೀನದಲ್ಲಿರುತ್ತವೆ.",
-            privacyNotice: "ಗೌಪ್ಯತೆ ಸೂಚನೆ: ಅರ್ಜಿ ಸಹಾಯ ನೀಡುವ ಸಲುವಾಗಿ ಮಾತ್ರ ಗ್ರಾಹಕರ ವಿವರಗಳು ಮತ್ತು ಐಚ್ಛಿಕ ದಾಖಲೆಗಳನ್ನು ಸಂಗ್ರಹಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ಗೌಪ್ಯವಾಗಿ ರಕ್ಷಿಸಲಾಗುತ್ತದೆ.",
+            privacyNotice: "ಗೌಪ್ಯತೆ ಸೂಚನೆ: ನಾಗರಿಕ ಸೇವಾ ಅರ್ಜಿಗಳ ತಯಾರಿಗಾಗಿ ಮಾತ್ರ ಗ್ರಾಹಕರ ವಿವರಗಳು ಮತ್ತು ಐಚ್ಛಿಕ ದಾಖಲೆಗಳನ್ನು ಸಂಗ್ರಹಿಸಲಾಗುತ್ತದೆ. ವಿವರಗಳನ್ನು ಗೌಪ್ಯವಾಗಿ ರಕ್ಷಿಸಲಾಗುತ್ತದೆ ಮತ್ತು 90 ದಿನಗಳವರೆಗೆ ಮಾತ್ರ ಸಂಗ್ರಹಿಸಿ ನಂತರ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅಳಿಸಲಾಗುತ್ತದೆ.",
             templateNotice: "ಮೂಲ UI ಟೆಂಪ್ಲೇಟ್ MIT ಪರವಾನಗಿ ಅಡಿಯಲ್ಲಿ ಪರವಾನಗಿ ಪಡೆದಿದೆ — ಕೃತಿಸ್ವಾಮ್ಯ © 2025 ಕಿರಣ್ ಬಡವೆ.",
             attributionLink: "MIT ಲೈಸೆನ್ಸ್ ವಿವರ"
         }

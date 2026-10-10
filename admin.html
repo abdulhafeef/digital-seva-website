@@ -71,9 +71,12 @@
             text-decoration: none;
             margin: 3px 2px;
             font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
         }
         .doc-chip:hover {
             border-color: var(--primary-color);
+            background: var(--bg-surface-hover);
         }
         .stats-grid {
             display: grid;
@@ -280,10 +283,11 @@
                 const date = new Date(item.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
                 const docsHtml = (item.files && item.files.length > 0)
                     ? item.files.map(f => `
-                        <a href="/api/admin/document/${item.enquiryId}/${f.storedFilename}?token=${encodeURIComponent(authToken)}"
-                           target="_blank" class="doc-chip" title="Size: ${(f.sizeBytes / 1024).toFixed(1)} KB">
+                        <button type="button" class="doc-chip"
+                           onclick="viewDocument('${escapeHtml(item.enquiryId)}', '${encodeURIComponent(f.storedFilename)}', '${escapeHtml(f.originalName)}')"
+                           title="Size: ${(f.sizeBytes / 1024).toFixed(1)} KB (Click to view securely)">
                            📄 ${escapeHtml(f.originalName)}
-                        </a>
+                        </button>
                       `).join('')
                     : '<span style="color: var(--text-muted); font-size: 0.82rem;">None</span>';
 
@@ -309,6 +313,41 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        async function viewDocument(enquiryId, encodedStoredFilename, originalName) {
+            const storedFilename = decodeURIComponent(encodedStoredFilename);
+            try {
+                const res = await fetch(`/api/admin/document/${encodeURIComponent(enquiryId)}/${encodeURIComponent(storedFilename)}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.status === 401) {
+                    alert('Session expired. Please log in again.');
+                    sessionStorage.removeItem('ds_admin_token');
+                    authToken = '';
+                    loginSection.style.display = 'block';
+                    dashboardSection.style.display = 'none';
+                    return;
+                }
+                if (!res.ok) {
+                    alert('Failed to retrieve document: ' + res.statusText);
+                    return;
+                }
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const win = window.open(blobUrl, '_blank');
+                if (!win) {
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = originalName || storedFilename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            } catch (err) {
+                alert('Network error while retrieving document.');
+            }
         }
 
         async function deleteEnquiry(enquiryId) {
