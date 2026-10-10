@@ -6,7 +6,8 @@
 /* --------------------------------------------------------
    1. Design Tokens & Theme Variables
    -------------------------------------------------------- */
-:root {
+:root,
+[data-theme="light"] {
     color-scheme: light;
 
     /* --- Light Mode (Default for new visitors) ---
@@ -139,6 +140,10 @@ html {
     overflow-x: hidden;
     font-size: 16px;
     background-color: var(--bg-primary);
+    color-scheme: light;
+}
+
+[data-theme="light"] {
     color-scheme: light;
 }
 
@@ -482,14 +487,14 @@ select:focus-visible {
     transform: rotate(15deg);
 }
 
-/* Theme Toggle Icons - Icon reflects the action to be performed:
-   In light mode: shows moon (action: switch to dark)
-   In dark mode: shows sun (action: switch to light) */
-.sun-icon { display: none; font-size: 1.05rem; }
-.moon-icon { display: block; font-size: 1.05rem; }
+/* Theme Toggle Icons - Icon matches the actual theme:
+   In light mode: shows sun (☀️)
+   In dark mode: shows moon (🌙) */
+.sun-icon { display: block; font-size: 1.05rem; }
+.moon-icon { display: none; font-size: 1.05rem; }
 
-[data-theme="dark"] .sun-icon { display: block; }
-[data-theme="dark"] .moon-icon { display: none; }
+[data-theme="dark"] .sun-icon { display: none; }
+[data-theme="dark"] .moon-icon { display: block; }
 
 /* Hamburger Button */
 .nav-toggle {

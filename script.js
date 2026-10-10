@@ -21,12 +21,19 @@ const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-re
 // 2. Theme Management (Light / Dark)
 // ========================================================
 // Requirement: Light mode should be the default for new visitors
-let currentTheme = localStorage.getItem('theme') || 'light';
+let currentTheme = 'light';
+try {
+    currentTheme = localStorage.getItem('theme') || 'light';
+} catch (e) {
+    currentTheme = 'light';
+}
 
 function applyTheme(theme) {
     currentTheme = theme;
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    try {
+        localStorage.setItem('theme', theme);
+    } catch (e) {}
 
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
