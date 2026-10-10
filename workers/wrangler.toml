@@ -1,0 +1,21 @@
+# ========================================================
+# DIGITAL SEVA — RETENTION CLEANUP WORKER CONFIGURATION
+# Free Tier Scheduled Worker for 90-Day Record Retention
+# ========================================================
+
+name = "digital-seva-retention-worker"
+main = "retention-worker.js"
+compatibility_date = "2026-10-10"
+
+# Trigger once daily at 03:00 UTC (08:30 AM IST)
+[triggers]
+crons = ["0 3 * * *"]
+
+# Encrypted production secrets must be set via Cloudflare Dashboard or:
+# wrangler secret put SUPABASE_URL
+# wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# wrangler secret put ADMIN_TOKEN
+
+[vars]
+RETENTION_DAYS = "90"
+NODE_ENV = "production"

@@ -35,6 +35,7 @@ The platform features eight citizen application assistance categories with preci
 ## 🎨 Design System & Aesthetics
 
 - **Light & Dark Themes**: Fully designed dual-theme architecture. The light theme features a warm, very light near-white palette (`#faf9f5`) with royal sapphire blue (`#1e40af`) and warm saffron amber (`#d97706`). The dark theme features deep midnight navy-slate (`#0a101d`) with crisp, high-contrast surfaces.
+- **Official Digital Seva Logo**: Exact official logo (`assets/digital-seva-logo.jpeg`) integrated in header, footer, and owner portal with theme-aware badge framing.
 - **Default for New Visitors**: Light mode is the default; theme preference is saved in `localStorage`.
 - **Anti-Flash Initialization**: Inline `<head>` script and `<meta name="darkreader-lock">` ensure immediate, consistent background rendering on refresh without flash or third-party tint distortion.
 - **Bilingual Interface**: Instant in-place translation between **English (EN)** and natural, polite **Kannada (ಕನ್ನಡ)** with `localStorage` persistence.
@@ -43,170 +44,186 @@ The platform features eight citizen application assistance categories with preci
 
 ---
 
-## 🔒 Customer Enquiry Flow & Security Architecture
+## ☁️ Production Architecture: Cloudflare Pages + Supabase (₹0 / Month Free Tier)
 
-Customers can choose between two equally clear options:
+Digital Seva has been architected to run permanently on free-tier infrastructure with zero monthly hosting costs:
 
-- **Option A — Submit an Enquiry Online**:
-  - Name, 10-digit Indian mobile number, service, variant, optional notes.
-  - **Clear Privacy & Consent Notice**: Informs applicants about data collection purpose, administrator access restrictions, and the 90-day retention schedule.
-  - **Optional Individual Document Uploads**: Tailored upload slots per service variant (max 5 MB per file; allowed formats: `.pdf`, `.jpg`, `.jpeg`, `.png`).
-  - **Client-Side & Server-Side Validation**: File extension check, size check, and binary **Magic Byte Signature Verification** (`%PDF`, JPEG `FF D8 FF`, PNG `89 50 4E 47`).
-  - **Private Cryptographic Storage**: Uploaded files receive cryptographically random UUID names (`crypto.randomUUID()`) derived strictly from verified magic bytes.
-  - **Privacy & Rate Limiting**: In-memory sliding window rate limiter protects against automated enquiry spam (max 8 submissions per 15 minutes per IP).
-  - **Graceful Fallback**: If the backend server is offline or unreachable, an instant one-click WhatsApp fallback button is presented to the customer.
+```
+[ Citizen / Browser ]
+        │
+        ▼ (HTTPS)
+┌────────────────────────────────────────────────────────┐
+│ Cloudflare Pages                                       │
+│ • Static Assets: index.html, admin.html, CSS, JS, Logo │
+│                                                        │
+│ Cloudflare Pages Functions (/functions/api/...)       │
+│ • GET /healthz                                         │
+│ • POST /api/enquiries (Rate limit + Magic bytes check) │
+│ • POST /api/admin/login (HttpOnly Session Cookie)      │
+│ • POST /api/admin/logout                               │
+│ • GET /api/admin/enquiries (Owner authenticated)       │
+│ • DELETE /api/admin/enquiry/:id                        │
+│ • GET /api/admin/document/:documentId                  │
+└──────────────┬──────────────────────────┬──────────────┘
+               │                          │
+        (Private REST)             (Private REST)
+               ▼                          ▼
+┌──────────────────────────┐    ┌──────────────────────────────┐
+│ Supabase Postgres (Free) │    │ Supabase Storage (Free)      │
+│ • public.enquiries       │    │ • bucket: customer-documents │
+│ • public.enquiry_docs    │    │ • Private: public = false    │
+│ • Row Level Security     │    │ • Max 5 MB per file          │
+│ • Anon access DENIED     │    │ • Anon access DENIED         │
+└──────────────────────────┘    └──────────────────────────────┘
+```
 
-- **Option B — Contact Directly via WhatsApp**:
-  - Skip uploading and connect directly via WhatsApp (`+91 8660847792`).
-  - Clean prefilled URL generated with selected service and variant.
-  - **No sensitive personal data, Aadhaar numbers, or documents are ever placed in URLs.**
+### Free-Tier Services Breakdown
 
----
-
-## 🛡️ Business Owner Portal (`admin.html`) & Security Hardening
-
-An authenticated, private dashboard for the business owner to review customer enquiries and securely retrieve documents:
-
-- **Access URL**: `http://localhost:8000/admin.html`
-- **Authentication**: Requires the `ADMIN_TOKEN` configured in environment variables.
-- **Production Secret Enforcement**: In production (`NODE_ENV=production`), the server strictly refuses to start if `ADMIN_TOKEN` is missing, shorter than 32 characters, or matches development placeholders.
-- **Timing-Safe Comparison**: All token evaluations use constant-time `crypto.timingSafeEqual` with unequal buffer length protection to prevent timing attacks.
-- **Brute-Force Protection**: Admin login rate limiter restricts failed login attempts (max 5 failed attempts per 15 minutes per IP).
-- **Bearer-Only Document Retrieval**: Access tokens are **never** passed in URL query parameters. Document retrieval requires an `Authorization: Bearer <token>` header, streaming the binary response safely into an in-memory blob without logging secrets in proxy or browser history.
-- **Owner Deletion**: Enables the owner to permanently delete completed enquiry records and unlink physical files from storage.
-
----
-
-## 💾 Persistent Storage Architecture & Corruption Protection
-
-- **Configurable Storage Root**: Fully supports local paths (`STORAGE_DIR=uploads`) and absolute hosted mount paths (`STORAGE_DIR=/var/data`).
-- **Atomic Writes**: Enquiry updates write to a temporary file (`enquiries.json.tmp.<uuid>`) before atomic rename, preventing file corruption or 0-byte truncation upon unexpected server termination.
-- **Corruption Recovery**: If `enquiries.json` encounters a parse error, it creates a timestamped backup (`enquiries.corrupt.<timestamp>.json`) and halts unsafe writes rather than silently overwriting historical records.
-- **Public URL Protection**: Storage files are strictly isolated outside public static routes and blocked with 403 Forbidden.
-
----
-
-## ⏱️ Customer Record Retention Policy
-
-- **Configured via `RETENTION_DAYS`**:
-  - `RETENTION_DAYS=90` (Default): Automatically purges enquiry records and unlinks associated uploaded files older than 90 days.
-  - `RETENTION_DAYS=0`: Disables automatic expiry; records remain permanently until manual deletion by the business owner.
-- **Safe Purge**: Cleanup runs on server boot and every 24 hours. Files are strictly checked to ensure they reside beneath `STORAGE_DIR` before deletion.
+| Component | Provider & Tier | Monthly Cost | Generous Free Quota |
+| :--- | :--- | :--- | :--- |
+| **Public Website & Admin Portal** | Cloudflare Pages (Free) | **₹0** | Unlimited bandwidth, 500 builds/month |
+| **Serverless Backend APIs** | Cloudflare Pages Functions | **₹0** | 100,000 requests per day |
+| **Database & Metadata** | Supabase Postgres (Free Tier) | **₹0** | 500 MB database, 2 free projects |
+| **Private Document Storage** | Supabase Storage (Free Tier) | **₹0** | 1 GB storage, 2 GB egress/month |
+| **Bot Protection (Optional)** | Cloudflare Turnstile (Free) | **₹0** | Unlimited challenges/month |
+| **Email Alerts (Optional)** | Resend HTTP API (Free Tier) | **₹0** | 3,000 emails/month (100/day) |
 
 ---
 
-## 📧 Automatic Email Notifications
+## 🛠️ Supabase Setup Instructions
 
-Configurable notification service alerts the business owner whenever a new customer enquiry is submitted:
+### 1. Create Supabase Project
+1. Go to [supabase.com](https://supabase.com) and create a free project (select region: **South Asia - Mumbai** for lowest Indian latency).
+2. Note your **Project URL** and **API Keys** under **Project Settings -> API**:
+   - `Project URL`: `https://your-ref.supabase.co`
+   - `anon public key`: used for client validation
+   - `service_role secret key`: **Keep strictly confidential; only configure in Cloudflare dashboard!**
 
-- **Target Address**: `digitalseva7051@gmail.com`
-- **Provider**: Nodemailer integration with configurable SMTP.
-- **Non-Blocking**: Notifications are sent asynchronously after the enquiry has been safely written to disk. An SMTP error never causes a customer enquiry to fail.
-- **Privacy Conscious**: Notification emails include only reference ID, service type, variant, and submission timestamp. No Aadhaar numbers, customer notes, or document attachments are sent over email.
-- **Default State**: Disabled by default (`EMAIL_NOTIFICATIONS_ENABLED=false`) until valid SMTP credentials are configured.
+### 2. Apply Database Migrations & Storage Setup
+Open the **SQL Editor** in your Supabase dashboard and run the version-controlled script located at:
+`supabase/migrations/20261010_initial_schema.sql`
+
+This single idempotent SQL migration sets up:
+1. `public.enquiries`: Customer contact and service details.
+2. `public.enquiry_documents`: Document metadata with cascade foreign keys.
+3. **Row Level Security (RLS)**: Enforces strict default-deny policies against anonymous public access (`REVOKE ALL ON public.enquiries FROM anon`).
+4. **Private Storage Bucket**: Creates the `customer-documents` bucket (`public = false`, 5 MB file size limit, PDF/JPEG/PNG whitelist) and configures strict storage access policies.
 
 ---
 
-## 🚀 Running the Project Locally
+## 🚀 Cloudflare Pages Deployment Guide
 
-### Prerequisites
-- Node.js v18.0.0 or higher
-- npm v9.0.0 or higher
+### 1. Build Settings
+In the Cloudflare Dashboard, navigate to **Workers & Pages -> Create Application -> Pages -> Connect to Git**:
 
+| Setting | Value |
+| :--- | :--- |
+| **Project Name** | `digital-seva` |
+| **Framework preset** | `None` |
+| **Build Command** | `npm ci && npm test && npm run build:pages` |
+| **Build output directory** | `dist` |
+| **Root directory** | `/` (root) |
+
+### 2. Configure Environment Variables & Secrets
+Under **Pages Project Settings -> Environment Variables**, configure the following variables (choose **Encrypt** for all secret tokens):
+
+| Variable Name | Type | Value / Guidance |
+| :--- | :--- | :--- |
+| `NODE_ENV` | Plaintext | `production` |
+| `SUPABASE_URL` | Plaintext | `https://your-project-ref.supabase.co` |
+| `SUPABASE_ANON_KEY` | Plaintext | `ey...` (Supabase anon key) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Encrypted** | `ey...` (Supabase service_role secret key) |
+| `ADMIN_TOKEN` | **Encrypted** | Random 32+ character string for Owner Portal login |
+| `SESSION_SECRET` | **Encrypted** | Random 32+ character string for HMAC-SHA256 session cookies |
+| `RETENTION_DAYS` | Plaintext | `90` (or `0` to disable auto-expiry) |
+| `TURNSTILE_SITE_KEY` | Plaintext *(optional)* | Cloudflare Turnstile public key |
+| `TURNSTILE_SECRET_KEY` | **Encrypted** *(optional)* | Cloudflare Turnstile secret key |
+| `EMAIL_NOTIFICATIONS_ENABLED` | Plaintext *(optional)* | `false` (default) or `true` |
+| `RESEND_API_KEY` | **Encrypted** *(optional)* | `re_...` (Resend API key) |
+| `EMAIL_FROM` | Plaintext *(optional)* | `"Digital Seva" <onboarding@resend.dev>` |
+| `NOTIFICATION_EMAIL` | Plaintext *(optional)* | `digitalseva7051@gmail.com` |
+
+---
+
+## ⏱️ Scheduled 90-Day Retention Worker (`workers/retention-worker.js`)
+
+Because Cloudflare Pages Functions are stateless request handlers, automated customer record cleanup is provided via a dedicated scheduled Cloudflare Worker.
+
+### How It Works:
+- Runs once daily at `03:00 UTC` (`08:30 AM IST`) via Cron Trigger (`0 3 * * *`).
+- Respects `RETENTION_DAYS=90`: identifies enquiries older than 90 days.
+- If `RETENTION_DAYS=0`: logs that retention is disabled and exits safely.
+- Safely unlinks associated storage objects from bucket `customer-documents`.
+- Deletes enquiry records from Postgres (cascading foreign keys remove document metadata).
+- Handles retries on temporary storage errors so data is never prematurely corrupted.
+- Strict security guard: refuses to delete files outside the `customer-documents` bucket.
+
+### Deployment Instructions:
 ```bash
-# 1. Install dependencies (Nodemailer)
+cd workers
+# Configure secrets
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put ADMIN_TOKEN
+
+# Deploy scheduled worker
+npx wrangler deploy
+```
+
+---
+
+## 💻 Local Development Options
+
+### Option 1: Native Node.js Server (Quick Local Dev)
+Runs the lightweight Node.js development server:
+```bash
+# 1. Install dependencies
 npm install
 
 # 2. Configure local environment
 cp .env.example .env
 
-# 3. Run automated test suite
-npm test
-
-# 4. Start the server
+# 3. Start server
 npm start
 ```
+Access at `http://localhost:8000`.
 
-The application will be live at:
-- **Public Website**: `http://localhost:8000`
-- **Owner Dashboard**: `http://localhost:8000/admin.html` (Use `ADMIN_TOKEN` configured in `.env`, or default dev key `ds_local_dev_only_key`)
-- **Healthcheck Endpoint**: `http://localhost:8000/healthz`
+### Option 2: Cloudflare Wrangler Pages Functions Local Emulation
+Emulates the exact Cloudflare Pages and Edge runtime locally:
+```bash
+# 1. Build public assets
+npm run build:pages
 
----
+# 2. Configure local Wrangler environment bindings
+cp .env.example .dev.vars
+# (Edit .dev.vars with test keys)
 
-## 🌐 Deploying to Render (Deployment Guide)
-
-### 1. Service Type & Architecture
-Deploy Digital Seva as a **Web Service** on Render (not a Static Site), because the Node.js backend handles enquiries, magic-byte file validation, authenticated document streams, and admin management.
-
-> [!IMPORTANT]
-> **Ephemeral Disk Warning & Persistent Disk Requirement**:
-> Render's default web service containers have an ephemeral filesystem. Every deploy, restart, or sleep/wake cycle completely wipes the local container disk.
-> To prevent customer records and uploaded documents from being lost upon redeployment, a **Render Persistent Disk** must be mounted.
-> Persistent Disks require a Render paid plan (Starter tier at $7/month for the Web Service + $0.25/GB/month for the disk).
-
-### 2. Render Web Service Settings
-
-| Setting | Value |
-| :--- | :--- |
-| **Service Type** | Web Service |
-| **Environment / Runtime** | `Node` |
-| **Region** | `Singapore` (Recommended for low latency to users in India) |
-| **Branch** | `main` |
-| **Build Command** | `npm ci && npm test` |
-| **Start Command** | `npm start` |
-| **Health Check Path** | `/healthz` |
-
-### 3. Render Persistent Disk Settings
-Under the **Disks** section in the Render Web Service dashboard:
-- **Disk Name**: `digital-seva-storage`
-- **Mount Path**: `/var/data`
-- **Size**: `1 GB` (or `5 GB` depending on document volume)
-
-### 4. Render Environment Variables
-Configure the following in the **Environment** tab on Render:
-
-| Variable | Recommended Value | Description |
-| :--- | :--- | :--- |
-| `NODE_ENV` | `production` | Enforces production security checks |
-| `ADMIN_TOKEN` | *(Generate a 32+ char random string)* | Secret key for Owner Portal access |
-| `STORAGE_DIR` | `/var/data` | Matches persistent disk mount path |
-| `RETENTION_DAYS` | `90` | Purge completed records after 90 days (or `0` for permanent) |
-| `EMAIL_NOTIFICATIONS_ENABLED` | `true` *(optional)* | Enable email alerts |
-| `SMTP_HOST` | `smtp.gmail.com` *(optional)* | SMTP provider host |
-| `SMTP_PORT` | `587` *(optional)* | SMTP TLS port |
-| `SMTP_SECURE` | `false` *(optional)* | STARTTLS flag |
-| `SMTP_USER` | `your_email@gmail.com` *(optional)* | SMTP username / address |
-| `SMTP_PASS` | `your_gmail_app_password` *(optional)* | Google App Password (16 characters) |
-| `EMAIL_FROM` | `"Digital Seva" <no-reply@example.com>` | Sender display name |
-| `NOTIFICATION_EMAIL` | `digitalseva7051@gmail.com` | Business owner recipient email |
-
-*(Note: `PORT` is assigned automatically by Render; do not hardcode it).*
-
----
-
-## ⚙️ Environment Configuration Reference (`.env.example`)
-
-| Variable | Description | Default / Requirement |
-| :--- | :--- | :--- |
-| `NODE_ENV` | Environment mode (`development` or `production`) | `development` |
-| `PORT` | HTTP Server port | `8000` |
-| `HOST` | Server bind interface | `0.0.0.0` |
-| `ADMIN_TOKEN` | Secret key for Owner Portal access | Min 32 chars required in production |
-| `STORAGE_DIR` | Storage root for enquiries and documents | `uploads` (local) or `/var/data` (Render) |
-| `RETENTION_DAYS`| Record retention period in days | `90` (or `0` to disable) |
-| `EMAIL_NOTIFICATIONS_ENABLED` | Enable email alerts for new enquiries | `false` |
-| `NOTIFICATION_EMAIL` | Recipient address for notifications | `digitalseva7051@gmail.com` |
+# 3. Run Pages Functions locally
+npx wrangler pages dev dist
+```
 
 ---
 
 ## 🧪 Automated Test Suite
 
-Run the full test suite with:
+Run the comprehensive test suite with:
 ```bash
 npm test
 ```
-The suite executes 135+ automated assertions covering data integrity, bilingual translations, production token rejection, timing-safe authentication, brute-force rate-limiting, magic-byte file validation, atomic file writes, crash persistence across server restart, retention purging, mock email notifications, and Git secret hygiene—all utilizing an isolated temporary storage sandbox.
+The suite executes **204+ automated assertions** covering:
+- Bilingual English and Kannada dictionaries & checklists for all 8 civic services.
+- Magic byte binary signatures (`%PDF`, JPEG `FF D8 FF`, PNG `89 50 4E 47`) and rejection of spoofed files.
+- Indian mobile number validation and Turnstile CAPTCHA verification.
+- Timing-safe authentication and production token length enforcement.
+- Cryptographically signed HMAC-SHA256 session tokens, HttpOnly cookie generation, and session expiration.
+- Edge API endpoints: `/healthz`, `/api/admin/login`, `/api/admin/logout`, `/api/admin/enquiries`, `/api/admin/document/[[path]]`, `/api/admin/enquiry/[id]`, `/api/enquiries`.
+- Strict prohibition of URL query-string authentication tokens.
+- Storage upload rollback on database failure.
+- Scheduled 90-day retention worker logic.
+- Resend HTTP email notification sender (mocked).
+- Supabase SQL migration syntax and Row Level Security verification.
+- Cloudflare Pages static build validation: guarantees `dist/` contains public assets only and strictly excludes server scripts, tests, `.env`, `.dev.vars`, and database exports.
+- Git hygiene verification: confirms `.env*`, `.dev.vars*`, and customer files remain excluded from Git.
 
 ---
 

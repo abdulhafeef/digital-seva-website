@@ -543,8 +543,256 @@ async function runAllTests() {
 
         // Verify .env.example contains only placeholders
         const envExampleContent = fs.readFileSync(path.resolve(__dirname, '..', '.env.example'), 'utf8');
-        assert(envExampleContent.includes('ADMIN_TOKEN=your_secure_random_admin_token_minimum_32_characters_here'), '.env.example contains placeholders only');
+        assert(envExampleContent.includes('ADMIN_TOKEN=your_secure_random_admin_token_minimum_32_characters_here'), '.env.example contains placeholders only for ADMIN_TOKEN');
+        assert(envExampleContent.includes('SESSION_SECRET=your_secure_random_session_secret_minimum_32_characters_here'), '.env.example contains placeholders for SESSION_SECRET');
+        assert(envExampleContent.includes('SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_secret_key_here'), '.env.example contains placeholders for SUPABASE_SERVICE_ROLE_KEY');
         assert(!envExampleContent.includes(STRONG_ADMIN_TOKEN), '.env.example does not contain real secret tokens');
+
+        // -----------------------------------------------------
+        // 10. CLOUDFLARE PAGES FUNCTIONS & SUPABASE ARCHITECTURE TESTS
+        // -----------------------------------------------------
+        console.log('\n--- 10. CLOUDFLARE PAGES FUNCTIONS & SUPABASE ARCHITECTURE TESTS ---');
+
+        // A. Dynamic import of Pages Functions & Worker modules
+        const validationMod = await import('../functions/utils/validation.js');
+        const authMod = await import('../functions/utils/auth.js');
+        const supabaseMod = await import('../functions/utils/supabase.js');
+        const emailMod = await import('../functions/utils/email.js');
+        const healthzEndpoint = await import('../functions/healthz.js');
+        const loginEndpoint = await import('../functions/api/admin/login.js');
+        const logoutEndpoint = await import('../functions/api/admin/logout.js');
+        const enquiriesListEndpoint = await import('../functions/api/admin/enquiries.js');
+        const enquiryDeleteEndpoint = await import('../functions/api/admin/enquiry/[id].js');
+        const documentEndpoint = await import('../functions/api/admin/document/[[path]].js');
+        const customerEnquiriesEndpoint = await import('../functions/api/enquiries.js');
+        const retentionWorker = await import('../workers/retention-worker.js');
+
+        // B. Magic Bytes Binary Validation on Typed Arrays
+        const validPdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34]); // %PDF-1.4
+        const validJpgBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+        const validPngBytes = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        const fakePdfBytes = new Uint8Array(Buffer.from('Not a PDF file at all, just text'));
+
+        assert(validationMod.validateMagicBytes(validPdfBytes)?.mime === 'application/pdf', 'Edge validation correctly identifies PDF magic bytes');
+        assert(validationMod.validateMagicBytes(validJpgBytes)?.mime === 'image/jpeg', 'Edge validation correctly identifies JPEG magic bytes');
+        assert(validationMod.validateMagicBytes(validPngBytes)?.mime === 'image/png', 'Edge validation correctly identifies PNG magic bytes');
+        assert(validationMod.validateMagicBytes(fakePdfBytes) === null, 'Edge validation strictly rejects spoofed file bytes');
+        assert(validationMod.validateMagicBytes(new Uint8Array([0x01, 0x02])) === null, 'Edge validation rejects truncated buffers (< 8 bytes)');
+
+        // C. Phone Number & Turnstile Validation
+        assert(validationMod.validateIndianMobile('9876543210') === true, '10-digit Indian mobile is accepted');
+        assert(validationMod.validateIndianMobile('+919876543210') === true, '+91 prefixed Indian mobile is accepted');
+        assert(validationMod.validateIndianMobile('09876543210') === true, '0-prefixed Indian mobile is accepted');
+        assert(validationMod.validateIndianMobile('1234567890') === false, 'Invalid mobile starting with 1 is rejected');
+        assert(validationMod.validateIndianMobile('987654321') === false, '9-digit mobile is rejected');
+
+        const turnstileDevPass = await validationMod.verifyTurnstileToken('', '');
+        assert(turnstileDevPass.success === true, 'Turnstile verification safely passes in dev mode when unconfigured');
+
+        const turnstileMissingToken = await validationMod.verifyTurnstileToken('', 'configured_turnstile_secret');
+        assert(turnstileMissingToken.success === false, 'Turnstile verification fails when secret is configured but token is missing');
+
+        // D. Owner Authentication & HMAC-SHA256 Session Management
+        assert(authMod.safeCompare('exact_match_str', 'exact_match_str') === true, 'safeCompare returns true for identical strings');
+        assert(authMod.safeCompare('exact_match_str', 'wrong_match_str') === false, 'safeCompare returns false for differing strings');
+
+        // Production secret rules
+        const prodMissingToken = authMod.validateProductionSecrets({ NODE_ENV: 'production', ADMIN_TOKEN: '' });
+        assert(prodMissingToken.valid === false, 'Production mode rejects missing ADMIN_TOKEN');
+
+        const prodShortToken = authMod.validateProductionSecrets({ NODE_ENV: 'production', ADMIN_TOKEN: 'short_key', SESSION_SECRET: STRONG_ADMIN_TOKEN });
+        assert(prodShortToken.valid === false, 'Production mode rejects ADMIN_TOKEN < 32 characters');
+
+        const prodPlaceholderToken = authMod.validateProductionSecrets({ NODE_ENV: 'production', ADMIN_TOKEN: 'ds_local_dev_only_key', SESSION_SECRET: STRONG_ADMIN_TOKEN });
+        assert(prodPlaceholderToken.valid === false, 'Production mode rejects placeholder ADMIN_TOKEN');
+
+        const prodValidSecrets = authMod.validateProductionSecrets({ NODE_ENV: 'production', ADMIN_TOKEN: STRONG_ADMIN_TOKEN, SESSION_SECRET: STRONG_ADMIN_TOKEN });
+        assert(prodValidSecrets.valid === true, 'Production mode accepts strong secrets (>= 32 chars)');
+
+        // HMAC-SHA256 Session Tokens
+        const testSessionSecret = 'test_session_secret_minimum_32_characters_for_hmac_sha256';
+        const sessionToken = await authMod.createSessionToken(testSessionSecret, 3600);
+        assert(typeof sessionToken === 'string' && sessionToken.includes('.'), 'createSessionToken generates a signed token');
+
+        const sessionVerifyValid = await authMod.verifySessionToken(sessionToken, testSessionSecret);
+        assert(sessionVerifyValid.valid === true && sessionVerifyValid.role === 'owner', 'verifySessionToken validates legitimate session token');
+
+        // Tampered session token
+        const tamperedToken = sessionToken.slice(0, -4) + 'abcd';
+        const sessionVerifyTampered = await authMod.verifySessionToken(tamperedToken, testSessionSecret);
+        assert(sessionVerifyTampered.valid === false, 'verifySessionToken rejects tampered session token');
+
+        // Expired session token
+        const expiredToken = await authMod.createSessionToken(testSessionSecret, -10);
+        const sessionVerifyExpired = await authMod.verifySessionToken(expiredToken, testSessionSecret);
+        assert(sessionVerifyExpired.valid === false && sessionVerifyExpired.error === 'Session expired', 'verifySessionToken rejects expired session token');
+
+        // Cookie building
+        const sessionCookie = authMod.createSessionCookie(sessionToken, true);
+        assert(sessionCookie.includes('HttpOnly') && sessionCookie.includes('SameSite=Strict') && sessionCookie.includes('Secure'), 'createSessionCookie sets HttpOnly, SameSite=Strict, Secure');
+
+        const clearedCookie = authMod.clearSessionCookie();
+        assert(clearedCookie.includes('Max-Age=0'), 'clearSessionCookie sets Max-Age=0 to expire cookie');
+
+        // E. Cloudflare Pages Functions Endpoints (Direct Invocation)
+        const testEnv = {
+            NODE_ENV: 'development',
+            ADMIN_TOKEN: STRONG_ADMIN_TOKEN,
+            SESSION_SECRET: testSessionSecret
+        };
+
+        // 1. GET /healthz
+        const healthzRes = await healthzEndpoint.onRequestGet({ env: testEnv });
+        assert(healthzRes.status === 200, 'Pages Functions GET /healthz returns 200 OK');
+        const healthzData = await healthzRes.json();
+        assert(healthzData.status === 'ok' && healthzData.service === 'Digital Seva', 'Healthcheck reports ok and service name');
+
+        // 2. POST /api/admin/login (Wrong password)
+        const loginReqWrong = new Request('http://localhost/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: 'wrong_password' })
+        });
+        const loginResWrong = await loginEndpoint.onRequestPost({ request: loginReqWrong, env: testEnv });
+        assert(loginResWrong.status === 401, 'Pages Functions POST /api/admin/login with wrong password returns 401');
+
+        // 3. POST /api/admin/login (Valid password)
+        const loginReqValid = new Request('http://localhost/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: STRONG_ADMIN_TOKEN })
+        });
+        const loginResValid = await loginEndpoint.onRequestPost({ request: loginReqValid, env: testEnv });
+        assert(loginResValid.status === 200, 'Pages Functions POST /api/admin/login with strong secret returns 200 OK');
+        const loginValidData = await loginResValid.json();
+        assert(loginValidData.success === true && Boolean(loginValidData.token), 'Admin login returns success and session token');
+        const setCookieHeader = loginResValid.headers.get('Set-Cookie');
+        assert(setCookieHeader && setCookieHeader.includes('ds_session'), 'Admin login sets ds_session HttpOnly cookie');
+
+        // 4. POST /api/admin/logout
+        const logoutRes = await logoutEndpoint.onRequestPost();
+        assert(logoutRes.status === 200, 'Pages Functions POST /api/admin/logout returns 200 OK');
+        assert(logoutRes.headers.get('Set-Cookie')?.includes('Max-Age=0'), 'Logout clears session cookie with Max-Age=0');
+
+        // 5. GET /api/admin/enquiries (Unauthenticated)
+        const unauthReq = new Request('http://localhost/api/admin/enquiries');
+        const unauthRes = await enquiriesListEndpoint.onRequestGet({ request: unauthReq, env: testEnv });
+        assert(unauthRes.status === 401, 'Pages Functions GET /api/admin/enquiries without auth returns 401 Unauthorized');
+
+        // 6. GET /api/admin/enquiries (Authenticated with session cookie)
+        const cookieAuthReq = new Request('http://localhost/api/admin/enquiries', {
+            headers: { 'Cookie': `ds_session=${encodeURIComponent(loginValidData.token)}` }
+        });
+        const cookieAuthRes = await enquiriesListEndpoint.onRequestGet({ request: cookieAuthReq, env: testEnv });
+        assert(cookieAuthRes.status === 200, 'Pages Functions GET /api/admin/enquiries with session cookie returns 200 OK');
+
+        // 7. GET /api/admin/enquiries (Authenticated with Bearer token)
+        const bearerAuthReq = new Request('http://localhost/api/admin/enquiries', {
+            headers: { 'Authorization': `Bearer ${loginValidData.token}` }
+        });
+        const bearerAuthRes = await enquiriesListEndpoint.onRequestGet({ request: bearerAuthReq, env: testEnv });
+        assert(bearerAuthRes.status === 200, 'Pages Functions GET /api/admin/enquiries with Bearer token returns 200 OK');
+
+        // 8. GET /api/admin/document (Strict prohibition of query-string tokens)
+        const queryTokenDocReq = new Request('http://localhost/api/admin/document/doc123?token=secret123');
+        const queryTokenDocRes = await documentEndpoint.onRequestGet({ request: queryTokenDocReq, env: testEnv, params: { path: ['doc123'] } });
+        assert(queryTokenDocRes.status === 401, 'Pages Functions document endpoint strictly rejects query string tokens with 401');
+
+        // 9. GET /api/admin/document (Path traversal attempt)
+        const traversalDocReq = new Request('http://localhost/api/admin/document/..%2Fsecret', {
+            headers: { 'Authorization': `Bearer ${loginValidData.token}` }
+        });
+        const traversalDocRes = await documentEndpoint.onRequestGet({ request: traversalDocReq, env: testEnv, params: { path: ['..', 'secret'] } });
+        assert(traversalDocRes.status === 400, 'Pages Functions document endpoint rejects directory traversal (..) with 400');
+
+        // 10. DELETE /api/admin/enquiry/:id (Unauthenticated)
+        const unauthDelReq = new Request('http://localhost/api/admin/enquiry/DS-TEST', { method: 'DELETE' });
+        const unauthDelRes = await enquiryDeleteEndpoint.onRequestDelete({ request: unauthDelReq, env: testEnv, params: { id: 'DS-TEST' } });
+        assert(unauthDelRes.status === 401, 'Pages Functions DELETE /api/admin/enquiry/:id without auth returns 401 Unauthorized');
+
+        // 11. POST /api/enquiries (Validation checks)
+        // Missing name
+        const badFormNoName = new FormData();
+        badFormNoName.append('phone', '9845012345');
+        const noNameReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: badFormNoName });
+        const noNameRes = await customerEnquiriesEndpoint.onRequestPost({ request: noNameReq, env: testEnv });
+        assert(noNameRes.status === 400, 'POST /api/enquiries rejects submission with missing name');
+
+        // Invalid phone
+        const badFormBadPhone = new FormData();
+        badFormBadPhone.append('name', 'Test Customer');
+        badFormBadPhone.append('phone', '12345');
+        const badPhoneReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: badFormBadPhone });
+        const badPhoneRes = await customerEnquiriesEndpoint.onRequestPost({ request: badPhoneReq, env: testEnv });
+        assert(badPhoneRes.status === 400, 'POST /api/enquiries rejects submission with invalid phone');
+
+        // Spoofed PDF upload
+        const badFormSpoofed = new FormData();
+        badFormSpoofed.append('name', 'Test Customer');
+        badFormSpoofed.append('phone', '9845012345');
+        badFormSpoofed.append('service', 'pan');
+        const spoofedBlob = new Blob(['Not really a PDF'], { type: 'application/pdf' });
+        badFormSpoofed.append('documentSlot1', spoofedBlob, 'fake.pdf');
+        const spoofedReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: badFormSpoofed });
+        const spoofedRes = await customerEnquiriesEndpoint.onRequestPost({ request: spoofedReq, env: testEnv });
+        assert(spoofedRes.status === 400, 'POST /api/enquiries rejects spoofed PDF file upload with 400 Bad Request');
+
+        // F. Scheduled Retention Worker Tests
+        // Disabled when RETENTION_DAYS=0
+        const retentionDisabledRes = await retentionWorker.executeRetentionCleanup({ RETENTION_DAYS: '0' });
+        assert(retentionDisabledRes.purgedCount === 0 && retentionDisabledRes.status === 'disabled', 'Retention worker respects RETENTION_DAYS=0 and remains disabled');
+
+        // Unconfigured Supabase handles cleanly without throwing
+        const retentionUnconfRes = await retentionWorker.executeRetentionCleanup({ RETENTION_DAYS: '90' });
+        assert(retentionUnconfRes.status === 'unconfigured', 'Retention worker handles missing Supabase credentials safely without crashing');
+
+        // G. Email Notification Utility Tests
+        // Disabled by default
+        const emailDisabledRes = await emailMod.sendEnquiryEmailNotification({ EMAIL_NOTIFICATIONS_ENABLED: 'false' }, { enquiryRef: 'DS-TEST' });
+        assert(emailDisabledRes.sent === false, 'Resend HTTP email notification is disabled by default');
+
+        // Mock sender verification
+        let mockEmailPayload = null;
+        const emailMockRes = await emailMod.sendEnquiryEmailNotification(
+            { EMAIL_NOTIFICATIONS_ENABLED: 'true' },
+            { enquiryRef: 'DS-MOCK-1', name: 'Hafeef', phone: '9845012345', service: 'pan', variant: 'new' },
+            async (payload) => { mockEmailPayload = payload; }
+        );
+        assert(emailMockRes.sent === true && mockEmailPayload.enquiryRef === 'DS-MOCK-1', 'Mock Resend sender succeeds and receives sanitized enquiry metadata');
+        assert(!mockEmailPayload.document && !mockEmailPayload.aadhaar, 'Email notification body contains no document binary or sensitive numbers');
+
+        // H. Supabase Database Migration Syntax & Idempotency Verification
+        const migrationFile = path.resolve(__dirname, '..', 'supabase', 'migrations', '20261010_initial_schema.sql');
+        assert(fs.existsSync(migrationFile), 'Supabase migration file exists under supabase/migrations/');
+        const migrationSql = fs.readFileSync(migrationFile, 'utf8');
+        assert(migrationSql.includes('CREATE TABLE IF NOT EXISTS public.enquiries'), 'Migration defines enquiries table with IF NOT EXISTS');
+        assert(migrationSql.includes('CREATE TABLE IF NOT EXISTS public.enquiry_documents'), 'Migration defines enquiry_documents table with foreign key');
+        assert(migrationSql.includes('ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY'), 'Migration enables Row Level Security on enquiries');
+        assert(migrationSql.includes('REVOKE ALL ON public.enquiries FROM anon'), 'Migration revokes public/anon access on enquiries');
+        assert(migrationSql.includes('customer-documents'), 'Migration configures private customer-documents storage bucket');
+
+        // I. Cloudflare Pages Build Script & Output Verification
+        console.log('\n--- VERIFYING CLOUDFLARE PAGES BUILD OUTPUT ---');
+        execSync('node scripts/build_pages.js', { cwd: path.resolve(__dirname, '..') });
+        const distPath = path.resolve(__dirname, '..', 'dist');
+        assert(fs.existsSync(path.join(distPath, 'index.html')), 'dist/index.html generated');
+        assert(fs.existsSync(path.join(distPath, 'admin.html')), 'dist/admin.html generated');
+        assert(fs.existsSync(path.join(distPath, 'styles.css')), 'dist/styles.css generated');
+        assert(fs.existsSync(path.join(distPath, 'script.js')), 'dist/script.js generated');
+        assert(fs.existsSync(path.join(distPath, 'data.js')), 'dist/data.js generated');
+        assert(fs.existsSync(path.join(distPath, 'translations.js')), 'dist/translations.js generated');
+        assert(fs.existsSync(path.join(distPath, 'assets', 'digital-seva-logo.jpeg')), 'dist/assets/digital-seva-logo.jpeg preserved in build');
+        assert(fs.existsSync(path.join(distPath, 'assets', 'digital-seva-icon.svg')), 'dist/assets/digital-seva-icon.svg preserved in build');
+
+        // Security check: No backend or secret files in dist/
+        assert(!fs.existsSync(path.join(distPath, 'server.js')), 'dist/ strictly excludes server.js');
+        assert(!fs.existsSync(path.join(distPath, 'tests')), 'dist/ strictly excludes tests directory');
+        assert(!fs.existsSync(path.join(distPath, 'supabase')), 'dist/ strictly excludes supabase migrations');
+        assert(!fs.existsSync(path.join(distPath, 'workers')), 'dist/ strictly excludes workers directory');
+        assert(!fs.existsSync(path.join(distPath, '.env')), 'dist/ strictly excludes .env');
+        assert(!fs.existsSync(path.join(distPath, '.dev.vars')), 'dist/ strictly excludes .dev.vars');
+        assert(!fs.existsSync(path.join(distPath, 'uploads')), 'dist/ strictly excludes uploads directory');
+
 
     } finally {
         // Cleanup isolated temporary test storage directory

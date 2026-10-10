@@ -230,6 +230,7 @@
                 const res = await fetch('/api/admin/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ password: key })
                 });
                 const data = await res.json();
@@ -247,7 +248,10 @@
             }
         });
 
-        logoutBtn.addEventListener('click', () => {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
+            } catch {}
             sessionStorage.removeItem('ds_admin_token');
             authToken = '';
             loginSection.style.display = 'block';
@@ -264,8 +268,11 @@
 
         async function loadEnquiries() {
             try {
+                const headers = {};
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
                 const res = await fetch('/api/admin/enquiries', {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                    headers: headers,
+                    credentials: 'same-origin'
                 });
                 if (res.status === 401) {
                     sessionStorage.removeItem('ds_admin_token');
@@ -334,8 +341,11 @@
         async function viewDocument(enquiryId, encodedStoredFilename, originalName) {
             const storedFilename = decodeURIComponent(encodedStoredFilename);
             try {
+                const headers = {};
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
                 const res = await fetch(`/api/admin/document/${encodeURIComponent(enquiryId)}/${encodeURIComponent(storedFilename)}`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                    headers: headers,
+                    credentials: 'same-origin'
                 });
                 if (res.status === 401) {
                     alert('Session expired. Please log in again.');
@@ -371,9 +381,12 @@
                 return;
             }
             try {
+                const headers = {};
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
                 const res = await fetch(`/api/admin/enquiry/${enquiryId}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                    headers: headers,
+                    credentials: 'same-origin'
                 });
                 const data = await res.json();
                 if (data.success) {
