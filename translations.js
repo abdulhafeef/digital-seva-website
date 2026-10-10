@@ -199,6 +199,12 @@ const translations = {
             errFileType: "Unsupported format. Only PDF, JPG, JPEG, and PNG files are accepted.",
             errNetwork: "Unable to connect to the enquiry service. You can use the WhatsApp button below to contact us directly.",
             errConsent: "Please agree to the privacy notice before submitting.",
+            turnstileLoading: "Loading security check...",
+            turnstileVerified: "Security verification completed.",
+            turnstileExpired: "Security verification expired. Please verify again.",
+            turnstileError: "Security check failed. Please refresh or try again.",
+            turnstileRequired: "Please complete the security check before submitting.",
+            turnstileUnavailable: "Security check is temporarily unavailable. Please contact us on WhatsApp.",
             fallbackWhatsAppBtn: "Send via WhatsApp Instead"
         },
         howItWorks: {
@@ -491,6 +497,12 @@ const translations = {
             errFileType: "ಅಮಾನ್ಯ ಕಡತ ನಮೂನೆ. PDF, JPG, JPEG ಮತ್ತು PNG ಕಡತಗಳನ್ನು ಮಾತ್ರ ಸ್ವೀಕರಿಸಲಾಗುತ್ತದೆ.",
             errNetwork: "ಸರ್ವರ್ ಸಂಪರ್ಕ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ. ಕೆಳಗಿನ ವಾಟ್ಸಾಪ್ ಬಟನ್ ಬಳಸಿ ನೇರವಾಗಿ ಸಂಪರ್ಕಿಸಿ.",
             errConsent: "ಸಲ್ಲಿಸುವ ಮೊದಲು ದಯವಿಟ್ಟು ಗೌಪ್ಯತೆ ಸಮ್ಮತಿಯನ್ನು ಒಪ್ಪಿಕೊಳ್ಳಿ.",
+            turnstileLoading: "ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+            turnstileVerified: "ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆ ಪೂರ್ಣಗೊಂಡಿದೆ.",
+            turnstileExpired: "ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆ ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಪುನಃ ಪರಿಶೀಲಿಸಿ.",
+            turnstileError: "ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಪುಟವನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಿ ಅಥವಾ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.",
+            turnstileRequired: "ಸಲ್ಲಿಸುವ ಮೊದಲು ದಯವಿಟ್ಟು ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ.",
+            turnstileUnavailable: "ಸುರಕ್ಷತಾ ಪರಿಶೀಲನೆ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ವಾಟ್ಸಾಪ್ ಮೂಲಕ ಸಂಪರ್ಕಿಸಿ.",
             fallbackWhatsAppBtn: "ವಾಟ್ಸಾಪ್ ಮೂಲಕವೇ ಕಳುಹಿಸಿ"
         },
         howItWorks: {

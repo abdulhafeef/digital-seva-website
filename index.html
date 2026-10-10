@@ -57,6 +57,9 @@
 
     <!-- Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+
+    <!-- Cloudflare Turnstile Bot Protection API -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoaded&render=explicit" async defer></script>
 </head>
 <body>
     <!-- Custom Cursor elements (disabled automatically on touch devices) -->
@@ -745,6 +748,12 @@
                                             I consent to Digital Seva collecting my name, phone number, and optional documents solely to assist with my civic application. Records are accessible only to authorized Digital Seva staff and are automatically purged after 90 days (or upon manual request). No data is shared with third parties.
                                         </span>
                                     </label>
+                                </div>
+
+                                <!-- Cloudflare Turnstile Bot Protection -->
+                                <div id="turnstileGroup" class="turnstile-group">
+                                    <div id="turnstileWidget" class="turnstile-widget"></div>
+                                    <div id="turnstileHelp" class="turnstile-help" style="display: none;" role="status"></div>
                                 </div>
 
                                 <!-- Form Status Alert -->

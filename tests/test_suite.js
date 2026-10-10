@@ -323,6 +323,13 @@ async function runAllTests() {
             const traversalBlock = await httpGet('/../package.json');
             assert(traversalBlock.statusCode === 403, 'Directory traversal /../package.json returns 403 Forbidden');
 
+            // Public configuration endpoint
+            const localConfigRes = await httpGet('/api/config');
+            assert(localConfigRes.statusCode === 200, 'Local server GET /api/config returns 200 OK');
+            const localConfigData = JSON.parse(localConfigRes.body);
+            assert(typeof localConfigData.turnstileSiteKey === 'string', 'Local server GET /api/config returns turnstileSiteKey string');
+            assert(!localConfigRes.body.includes(STRONG_ADMIN_TOKEN), 'Local server GET /api/config does not expose ADMIN_TOKEN or private credentials');
+
             // Customer enquiry submission without files
             const noFileEnquiry = await httpPost('/api/enquiries', {
                 'Content-Type': 'application/json'
@@ -559,6 +566,7 @@ async function runAllTests() {
         const supabaseMod = await import('../functions/utils/supabase.js');
         const emailMod = await import('../functions/utils/email.js');
         const healthzEndpoint = await import('../functions/healthz.js');
+        const configEndpoint = await import('../functions/api/config.js');
         const loginEndpoint = await import('../functions/api/admin/login.js');
         const logoutEndpoint = await import('../functions/api/admin/logout.js');
         const enquiriesListEndpoint = await import('../functions/api/admin/enquiries.js');
@@ -736,6 +744,181 @@ async function runAllTests() {
         const spoofedReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: badFormSpoofed });
         const spoofedRes = await customerEnquiriesEndpoint.onRequestPost({ request: spoofedReq, env: testEnv });
         assert(spoofedRes.status === 400, 'POST /api/enquiries rejects spoofed PDF file upload with 400 Bad Request');
+
+        // 12. CLOUDFLARE TURNSTILE INTEGRATION & CONFIG ENDPOINT TESTS
+        console.log('\n--- 12. TURNSTILE BOT PROTECTION & CONFIG SECURITY TESTS ---');
+
+        // A. GET /api/config via Pages Functions
+        const configWithKeyRes = await configEndpoint.onRequestGet({
+            env: { TURNSTILE_SITE_KEY: '0x4AAAAAA_test_site_key_123' }
+        });
+        assert(configWithKeyRes.status === 200, 'Pages Functions GET /api/config returns 200 OK');
+        assert(configWithKeyRes.headers.get('Cache-Control').includes('no-store'), 'GET /api/config sets Cache-Control: no-store');
+        assert(configWithKeyRes.headers.get('X-Content-Type-Options') === 'nosniff', 'GET /api/config sets X-Content-Type-Options: nosniff');
+        const configWithKeyData = await configWithKeyRes.json();
+        assert(configWithKeyData.turnstileSiteKey === '0x4AAAAAA_test_site_key_123', 'GET /api/config returns configured turnstileSiteKey');
+
+        // B. Secret Isolation Verification on /api/config
+        // Ensure secret keys (TURNSTILE_SECRET_KEY, ADMIN_TOKEN, SESSION_SECRET, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY) are NEVER returned!
+        const secretEnv = {
+            TURNSTILE_SITE_KEY: '0x4AAAAAA_public_key',
+            TURNSTILE_SECRET_KEY: '0x4AAAAAA_super_secret_key_never_leak',
+            ADMIN_TOKEN: 'admin_private_token_secret_12345',
+            SESSION_SECRET: 'session_crypto_secret_67890',
+            SUPABASE_SERVICE_ROLE_KEY: 'supabase_service_role_secret_key',
+            RESEND_API_KEY: 're_secret_api_key_12345'
+        };
+        const configSecretRes = await configEndpoint.onRequestGet({ env: secretEnv });
+        const configSecretRaw = await configSecretRes.text();
+        const configSecretData = JSON.parse(configSecretRaw);
+
+        assert(Object.keys(configSecretData).length === 1 && Object.keys(configSecretData)[0] === 'turnstileSiteKey', '/api/config JSON output contains only the turnstileSiteKey field');
+        assert(!configSecretRaw.includes('0x4AAAAAA_super_secret_key_never_leak'), '/api/config strictly NEVER leaks TURNSTILE_SECRET_KEY');
+        assert(!configSecretRaw.includes('admin_private_token_secret_12345'), '/api/config strictly NEVER leaks ADMIN_TOKEN');
+        assert(!configSecretRaw.includes('session_crypto_secret_67890'), '/api/config strictly NEVER leaks SESSION_SECRET');
+        assert(!configSecretRaw.includes('supabase_service_role_secret_key'), '/api/config strictly NEVER leaks SUPABASE_SERVICE_ROLE_KEY');
+        assert(!configSecretRaw.includes('re_secret_api_key_12345'), '/api/config strictly NEVER leaks RESEND_API_KEY');
+
+        // C. Production Turnstile Fail-Safe Tests on POST /api/enquiries
+        // When NODE_ENV=production and TURNSTILE_SECRET_KEY is missing, fail safely with 503 and WhatsApp fallback
+        const validFormNoToken = new FormData();
+        validFormNoToken.append('name', 'Pooja Hegde');
+        validFormNoToken.append('phone', '9845012345');
+        validFormNoToken.append('service', 'pan');
+
+        const prodMissingSecretReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: validFormNoToken });
+        const prodMissingSecretRes = await customerEnquiriesEndpoint.onRequestPost({
+            request: prodMissingSecretReq,
+            env: { NODE_ENV: 'production', TURNSTILE_SECRET_KEY: '' }
+        });
+        assert(prodMissingSecretRes.status === 503, 'POST /api/enquiries in production returns 503 when Turnstile secret is missing (Fail-Safe)');
+        const prodMissingSecretData = await prodMissingSecretRes.json();
+        assert(prodMissingSecretData.whatsappFallback === true, 'Production missing Turnstile configuration provides whatsappFallback flag');
+        assert(prodMissingSecretData.error.includes('WhatsApp'), 'Production missing Turnstile error message directs customer to WhatsApp assistance');
+
+        // When in production with secret configured, missing cf-turnstile-response returns 400
+        const prodMissingTokenReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: validFormNoToken });
+        const prodMissingTokenRes = await customerEnquiriesEndpoint.onRequestPost({
+            request: prodMissingTokenReq,
+            env: { NODE_ENV: 'production', TURNSTILE_SECRET_KEY: 'test_secret_key' }
+        });
+        assert(prodMissingTokenRes.status === 400, 'POST /api/enquiries in production rejects missing Turnstile token with 400');
+        const prodMissingTokenData = await prodMissingTokenRes.json();
+        assert(prodMissingTokenData.error.includes('security verification') || prodMissingTokenData.error.includes('security check'), 'Error message informs customer to complete security check');
+
+        // When cf-turnstile-response token fails verification against Cloudflare siteverify (mocked with invalid token)
+        const formWithToken = new FormData();
+        formWithToken.append('name', 'Pooja Hegde');
+        formWithToken.append('phone', '9845012345');
+        formWithToken.append('service', 'pan');
+        formWithToken.append('cf-turnstile-response', 'invalid_dummy_token_123');
+
+        // Global fetch mock helper for Cloudflare siteverify
+        const originalFetch = globalThis.fetch;
+        try {
+            // Mock siteverify rejection
+            globalThis.fetch = async (url, opts) => {
+                if (url && url.toString().includes('turnstile/v0/siteverify')) {
+                    return new Response(JSON.stringify({ success: false, 'error-codes': ['invalid-input-response'] }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                return originalFetch(url, opts);
+            };
+
+            const prodFailedTokenReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: formWithToken });
+            const prodFailedTokenRes = await customerEnquiriesEndpoint.onRequestPost({
+                request: prodFailedTokenReq,
+                env: { NODE_ENV: 'production', TURNSTILE_SECRET_KEY: 'test_secret_key' }
+            });
+            assert(prodFailedTokenRes.status === 400, 'POST /api/enquiries rejects invalid Turnstile token with 400');
+
+            // Mock siteverify success and Supabase PostgREST insert
+            globalThis.fetch = async (url, opts) => {
+                const urlStr = (url || '').toString();
+                if (urlStr.includes('turnstile/v0/siteverify')) {
+                    return new Response(JSON.stringify({ success: true, challenge_ts: new Date().toISOString() }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                if (urlStr.includes('/rest/v1/enquiries')) {
+                    return new Response(JSON.stringify([{ id: 'mock-uuid', enquiry_ref: 'DS-MOCK-REF' }]), {
+                        status: 201,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                return originalFetch(url, opts);
+            };
+
+            const prodValidEnv = {
+                NODE_ENV: 'production',
+                TURNSTILE_SECRET_KEY: 'test_secret_key',
+                SUPABASE_URL: 'https://mock.supabase.co',
+                SUPABASE_SERVICE_ROLE_KEY: 'mock_service_key'
+            };
+
+            const formValidToken = new FormData();
+            formValidToken.append('name', 'Pooja Hegde');
+            formValidToken.append('phone', '9845012345');
+            formValidToken.append('service', 'pan');
+            formValidToken.append('cf-turnstile-response', 'valid_verified_token');
+
+            const prodValidTokenReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: formValidToken });
+            const prodValidTokenRes = await customerEnquiriesEndpoint.onRequestPost({
+                request: prodValidTokenReq,
+                env: prodValidEnv
+            });
+            assert(prodValidTokenRes.status === 200, 'POST /api/enquiries in production accepts verified Turnstile token with 200 OK');
+            const prodValidTokenData = await prodValidTokenRes.json();
+            assert(prodValidTokenData.success === true && prodValidTokenData.enquiryId.startsWith('DS-'), 'Verified enquiry receives valid reference ID');
+
+            // E. Local Development Mode (Bypass verification when TURNSTILE_SECRET_KEY unset in development)
+            const devFormNoToken = new FormData();
+            devFormNoToken.append('name', 'Dev User');
+            devFormNoToken.append('phone', '9845012345');
+            devFormNoToken.append('service', 'voter');
+
+            const devReq = new Request('http://localhost/api/enquiries', { method: 'POST', body: devFormNoToken });
+            const devRes = await customerEnquiriesEndpoint.onRequestPost({
+                request: devReq,
+                env: {
+                    NODE_ENV: 'development',
+                    TURNSTILE_SECRET_KEY: '',
+                    SUPABASE_URL: 'https://mock.supabase.co',
+                    SUPABASE_SERVICE_ROLE_KEY: 'mock_service_key'
+                }
+            });
+            assert(devRes.status === 200, 'POST /api/enquiries in local development preserves offline testing and permits submission without Turnstile key');
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+
+        // F. verifyTurnstileToken unit tests
+        const valDevNoKey = await validationMod.verifyTurnstileToken('', '', '127.0.0.1', false);
+        assert(valDevNoKey.success === true, 'verifyTurnstileToken returns success in development when secret key is unset');
+
+        const valProdNoKey = await validationMod.verifyTurnstileToken('', '', '127.0.0.1', true);
+        assert(valProdNoKey.success === false, 'verifyTurnstileToken returns failure in production when secret key is unset');
+
+        const valEmptyToken = await validationMod.verifyTurnstileToken('', 'secret_key', '127.0.0.1', false);
+        assert(valEmptyToken.success === false, 'verifyTurnstileToken returns failure when token is empty');
+
+        // G. Bilingual Turnstile Translation Keys Verification
+        const turnstileTranslationKeys = [
+            'turnstileLoading',
+            'turnstileVerified',
+            'turnstileExpired',
+            'turnstileError',
+            'turnstileRequired',
+            'turnstileUnavailable'
+        ];
+        turnstileTranslationKeys.forEach(tKey => {
+            const enVal = getTranslation('en', `modal.${tKey}`);
+            const knVal = getTranslation('kn', `modal.${tKey}`);
+            assert(Boolean(enVal && knVal), `Bilingual Turnstile key 'modal.${tKey}' present in both English and Kannada`);
+        });
 
         // F. Scheduled Retention Worker Tests
         // Disabled when RETENTION_DAYS=0

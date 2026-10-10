@@ -658,6 +658,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------------------------------------------------------
+    // API: GET /api/config (Public Configuration for Turnstile)
+    // ---------------------------------------------------------
+    if (pathname === '/api/config' && req.method === 'GET') {
+        const turnstileSiteKey = (process.env.TURNSTILE_SITE_KEY || '').trim();
+        res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+            ...SECURITY_HEADERS
+        });
+        res.end(JSON.stringify({
+            turnstileSiteKey: turnstileSiteKey
+        }));
+        return;
+    }
+
+    // ---------------------------------------------------------
     // API: POST /api/enquiries (Customer Enquiry + Optional Uploads)
     // ---------------------------------------------------------
     if (pathname === '/api/enquiries' && req.method === 'POST') {
@@ -780,6 +797,31 @@ const server = http.createServer(async (req, res) => {
                     res.writeHead(400, { 'Content-Type': 'application/json', ...SECURITY_HEADERS });
                     res.end(JSON.stringify({ success: false, error: 'Please select a valid service.' }));
                     return;
+                }
+
+                // Turnstile Security Verification (Fail-safe in production)
+                const turnstileSecret = (process.env.TURNSTILE_SECRET_KEY || '').trim();
+                const turnstileToken = (fields['cf-turnstile-response'] || '').trim();
+
+                if (isProduction && !turnstileSecret) {
+                    res.writeHead(503, { 'Content-Type': 'application/json', ...SECURITY_HEADERS });
+                    res.end(JSON.stringify({
+                        success: false,
+                        error: 'Security verification is temporarily unavailable. Please contact us directly on WhatsApp for immediate assistance.',
+                        whatsappFallback: true
+                    }));
+                    return;
+                }
+
+                if (turnstileSecret) {
+                    if (!turnstileToken) {
+                        res.writeHead(400, { 'Content-Type': 'application/json', ...SECURITY_HEADERS });
+                        res.end(JSON.stringify({
+                            success: false,
+                            error: 'Please complete the security verification before submitting.'
+                        }));
+                        return;
+                    }
                 }
 
                 // Generate Unique Enquiry Record

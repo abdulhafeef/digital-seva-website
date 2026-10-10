@@ -110,14 +110,36 @@ export async function onRequestPost(context) {
         }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 4. Verify Turnstile CAPTCHA (if configured)
-    const turnstileSecret = env.TURNSTILE_SECRET_KEY || '';
-    const turnstileCheck = await verifyTurnstileToken(turnstileToken, turnstileSecret, clientIp);
-    if (!turnstileCheck.success) {
+    // 4. Verify Turnstile CAPTCHA (Production fail-safe & token validation)
+    const isProd = (env.NODE_ENV || '').toLowerCase() === 'production';
+    const turnstileSecret = (env.TURNSTILE_SECRET_KEY || '').trim();
+
+    if (isProd && !turnstileSecret) {
         return new Response(JSON.stringify({
             success: false,
-            error: turnstileCheck.error || 'Bot verification failed.'
-        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+            error: 'Security verification is temporarily unavailable. Please contact us directly on WhatsApp for immediate assistance.',
+            whatsappFallback: true
+        }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    if (turnstileSecret) {
+        if (!turnstileToken) {
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'Please complete the security verification before submitting.'
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        const turnstileCheck = await verifyTurnstileToken(turnstileToken, turnstileSecret, clientIp, isProd);
+        if (!turnstileCheck.success) {
+            return new Response(JSON.stringify({
+                success: false,
+                error: turnstileCheck.error || 'Bot verification failed. Please refresh and try again.'
+            }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
     }
 
     // 5. Extract & Validate Uploaded Files

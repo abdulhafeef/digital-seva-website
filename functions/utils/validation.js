@@ -79,21 +79,30 @@ export function validateIndianMobile(phone) {
  * @param {string} [ip] - Remote client IP
  * @returns {Promise<{ success: boolean, error?: string }>}
  */
-export async function verifyTurnstileToken(token, secretKey, ip) {
+export async function verifyTurnstileToken(token, secretKey, ip, isProduction = false) {
     if (!secretKey || secretKey.trim() === '') {
+        if (isProduction) {
+            return {
+                success: false,
+                error: 'Turnstile secret key is not configured in production.'
+            };
+        }
         // Turnstile not configured -> allowed for local dev
         return { success: true };
     }
 
-    if (!token) {
-        return { success: false, error: 'Verification token is required.' };
+    if (!token || token.trim() === '') {
+        return {
+            success: false,
+            error: 'Verification token is required. Please complete the security check.'
+        };
     }
 
     try {
         const formData = new URLSearchParams();
         formData.append('secret', secretKey);
         formData.append('response', token);
-        if (ip) formData.append('remoteip', ip);
+        if (ip && ip !== 'unknown') formData.append('remoteip', ip);
 
         const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
             method: 'POST',
@@ -107,12 +116,12 @@ export async function verifyTurnstileToken(token, secretKey, ip) {
         }
         return {
             success: false,
-            error: 'Bot verification failed. Please refresh and try again.'
+            error: 'Bot verification failed. Please complete the security check again.'
         };
     } catch (err) {
         return {
             success: false,
-            error: 'Unable to reach verification service.'
+            error: 'Unable to reach verification service. Please try again or use WhatsApp.'
         };
     }
 }

@@ -40,6 +40,15 @@ function applyTheme(theme) {
         const isDark = theme === 'dark';
         themeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
     }
+
+    if (typeof turnstileWidgetId !== 'undefined' && turnstileWidgetId !== null && window.turnstile && typeof window.turnstile.remove === 'function') {
+        try {
+            window.turnstile.remove(turnstileWidgetId);
+            turnstileWidgetId = null;
+            currentTurnstileToken = null;
+            renderTurnstileWidget();
+        } catch (e) {}
+    }
 }
 
 // Apply on initial script load
@@ -185,6 +194,10 @@ function openServiceModal(serviceId, preferredVariantId = null) {
     activeVariantId = preferredVariantId || serviceData.variants[0].id;
     renderModalContent(serviceId, activeVariantId);
 
+    // Initialize or reset Turnstile widget for this modal opening
+    renderTurnstileWidget();
+    resetTurnstileWidget();
+
     if (modalBackdrop) {
         modalBackdrop.style.display = 'flex';
         // Trigger reflow for smooth CSS opacity transition
@@ -208,6 +221,7 @@ function closeServiceModal() {
     activeServiceId = null;
     activeVariantId = null;
     selectedFilesMap.clear();
+    resetTurnstileWidget();
 
     const alertBox = document.getElementById('formStatusAlert');
     if (alertBox) {
@@ -463,6 +477,155 @@ function formatBytes(bytes) {
 }
 
 // ========================================================
+// 6b. Cloudflare Turnstile Verification System
+// ========================================================
+let turnstileSiteKey = '';
+let turnstileWidgetId = null;
+let currentTurnstileToken = null;
+let isConfigLoaded = false;
+
+function showTurnstileHelp(msg, type = 'error') {
+    const helpEl = document.getElementById('turnstileHelp');
+    if (!helpEl) return;
+    helpEl.style.display = 'block';
+    helpEl.className = `turnstile-help ${type}`;
+    helpEl.textContent = msg;
+}
+
+function hideTurnstileHelp() {
+    const helpEl = document.getElementById('turnstileHelp');
+    if (!helpEl) return;
+    helpEl.style.display = 'none';
+    helpEl.textContent = '';
+}
+
+function resetTurnstileWidget() {
+    currentTurnstileToken = null;
+    hideTurnstileHelp();
+    if (turnstileWidgetId !== null && window.turnstile && typeof window.turnstile.reset === 'function') {
+        try {
+            window.turnstile.reset(turnstileWidgetId);
+        } catch (e) {
+            console.warn('[TURNSTILE RESET WARNING]', e);
+        }
+    }
+}
+
+function renderTurnstileWidget() {
+    const groupEl = document.getElementById('turnstileGroup');
+    const containerEl = document.getElementById('turnstileWidget');
+    if (!groupEl || !containerEl) return;
+
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // When config is loaded and no site key is available
+    if (isConfigLoaded && !turnstileSiteKey) {
+        if (isLocalDev) {
+            // Local development mode: clean bypass
+            groupEl.style.display = 'none';
+        } else {
+            // Production with missing configuration: fail-safe mode
+            groupEl.style.display = 'block';
+            showTurnstileHelp(
+                getTranslation(currentLang, 'modal.turnstileUnavailable') ||
+                'Security verification is temporarily unavailable. Please contact us on WhatsApp.',
+                'warning'
+            );
+        }
+        return;
+    }
+
+    if (!turnstileSiteKey) {
+        return;
+    }
+
+    groupEl.style.display = 'block';
+
+    if (!window.turnstile || typeof window.turnstile.render !== 'function') {
+        showTurnstileHelp(
+            getTranslation(currentLang, 'modal.turnstileLoading') ||
+            'Loading security check...',
+            'muted'
+        );
+        return;
+    }
+
+    hideTurnstileHelp();
+
+    if (turnstileWidgetId !== null) {
+        return;
+    }
+
+    try {
+        turnstileWidgetId = window.turnstile.render('#turnstileWidget', {
+            sitekey: turnstileSiteKey,
+            theme: currentTheme === 'dark' ? 'dark' : 'light',
+            callback: function(token) {
+                currentTurnstileToken = token;
+                hideTurnstileHelp();
+            },
+            'expired-callback': function() {
+                currentTurnstileToken = null;
+                showTurnstileHelp(
+                    getTranslation(currentLang, 'modal.turnstileExpired') ||
+                    'Security verification expired. Please verify again.',
+                    'warning'
+                );
+            },
+            'error-callback': function() {
+                currentTurnstileToken = null;
+                showTurnstileHelp(
+                    getTranslation(currentLang, 'modal.turnstileError') ||
+                    'Security check failed. Please refresh or try again.',
+                    'error'
+                );
+            }
+        });
+    } catch (e) {
+        console.warn('[TURNSTILE RENDER FAILED]', e);
+    }
+}
+
+window.onTurnstileLoaded = function() {
+    renderTurnstileWidget();
+};
+
+async function fetchTurnstileConfig() {
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const data = await res.json();
+            turnstileSiteKey = (data && data.turnstileSiteKey) ? data.turnstileSiteKey.trim() : '';
+        }
+    } catch (err) {
+        console.warn('[TURNSTILE CONFIG FETCH ERROR]', err);
+    } finally {
+        isConfigLoaded = true;
+        renderTurnstileWidget();
+    }
+}
+
+function showWhatsAppFallbackNotice(name, phone, notes, message) {
+    if (!formStatusAlert) return;
+    const serviceName = getTranslation(currentLang, `services.items.${activeServiceId}.title`) || (activeServiceId || 'General');
+    const waFallbackText = encodeURIComponent(
+        `Hello Digital Seva, I am submitting an enquiry:\nName: ${name || 'N/A'}\nPhone: ${phone || 'N/A'}\nService: ${serviceName}\nNotes: ${notes || 'None'}`
+    );
+    const waUrl = `https://wa.me/918660847792?text=${waFallbackText}`;
+
+    formStatusAlert.style.display = 'block';
+    formStatusAlert.className = 'form-status-alert error';
+    formStatusAlert.innerHTML = `
+        <p>${message}</p>
+        <div style="margin-top: 10px;">
+            <a href="${waUrl}" target="_blank" rel="noopener" class="btn btn-whatsapp" style="width:100%;">
+                💬 ${getTranslation(currentLang, 'modal.fallbackWhatsAppBtn') || 'Send via WhatsApp Instead'}
+            </a>
+        </div>
+    `;
+}
+
+// ========================================================
 // 7. Customer Enquiry Form Submission (Option A)
 // ========================================================
 const enquiryForm = document.getElementById('enquiryForm');
@@ -503,6 +666,24 @@ if (enquiryForm) {
             return;
         }
 
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // Turnstile verification requirement
+        if (turnstileSiteKey) {
+            if (!currentTurnstileToken) {
+                const reqMsg = getTranslation(currentLang, 'modal.turnstileRequired') || 'Please complete the security check before submitting.';
+                showFormAlert(reqMsg, 'error');
+                showTurnstileHelp(reqMsg, 'error');
+                return;
+            }
+        } else if (!isLocalDev && isConfigLoaded) {
+            // Production with missing Turnstile configuration: fail safe, direct to WhatsApp
+            const unavailMsg = getTranslation(currentLang, 'modal.turnstileUnavailable') || 'Security check is unavailable. Please contact us directly on WhatsApp.';
+            showFormAlert(unavailMsg, 'error');
+            showWhatsAppFallbackNotice(name, phone, notes, unavailMsg);
+            return;
+        }
+
         // Prepare FormData
         const formData = new FormData();
         formData.append('name', name);
@@ -510,6 +691,9 @@ if (enquiryForm) {
         formData.append('service', activeServiceId || 'general');
         formData.append('variant', activeVariantId || 'standard');
         formData.append('notes', notes);
+        if (currentTurnstileToken) {
+            formData.append('cf-turnstile-response', currentTurnstileToken);
+        }
 
         // Attach optional selected files
         selectedFilesMap.forEach((file, slotId) => {
@@ -533,29 +717,25 @@ if (enquiryForm) {
                 showSuccessModal(result.enquiryId, name, phone);
                 enquiryForm.reset();
                 selectedFilesMap.clear();
+                resetTurnstileWidget();
             } else {
-                // Server validation error
-                showFormAlert(result.error || 'Failed to submit enquiry.', 'error');
+                // Server validation error or fail-safe
+                resetTurnstileWidget();
+                if (result.whatsappFallback || response.status === 503) {
+                    showWhatsAppFallbackNotice(name, phone, notes, result.error || 'Security verification temporarily unavailable.');
+                } else {
+                    showFormAlert(result.error || 'Failed to submit enquiry.', 'error');
+                }
             }
         } catch (networkError) {
             console.warn('[OFFLINE FALLBACK TRIGGERED]', networkError);
-            // If backend is offline, gracefully provide one-click WhatsApp fallback!
-            const serviceName = getTranslation(currentLang, `services.items.${activeServiceId}.title`) || activeServiceId;
-            const waFallbackText = encodeURIComponent(
-                `Hello Digital Seva, I am submitting an enquiry:\nName: ${name}\nPhone: ${phone}\nService: ${serviceName}\nNotes: ${notes}`
+            resetTurnstileWidget();
+            showWhatsAppFallbackNotice(
+                name,
+                phone,
+                notes,
+                getTranslation(currentLang, 'modal.errNetwork') || 'Backend service is currently offline.'
             );
-            const waUrl = `https://wa.me/918660847792?text=${waFallbackText}`;
-
-            formStatusAlert.style.display = 'block';
-            formStatusAlert.className = 'form-status-alert error';
-            formStatusAlert.innerHTML = `
-                <p>${getTranslation(currentLang, 'modal.errNetwork') || 'Backend service is currently offline.'}</p>
-                <div style="margin-top: 10px;">
-                    <a href="${waUrl}" target="_blank" rel="noopener" class="btn btn-whatsapp" style="width:100%;">
-                        💬 ${getTranslation(currentLang, 'modal.fallbackWhatsAppBtn') || 'Send via WhatsApp Instead'}
-                    </a>
-                </div>
-            `;
         } finally {
             setSubmittingState(false);
         }
@@ -901,6 +1081,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    // Fetch Public Client Configuration (e.g. Turnstile Site Key)
+    fetchTurnstileConfig();
 
     // Apply Language
     applyLanguage(currentLang);
