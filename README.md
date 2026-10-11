@@ -12,7 +12,7 @@ A modern, privacy-first web application providing guided documentation checklist
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%26%20Storage-emerald.svg)](https://supabase.com/)
 [![Tests](https://img.shields.io/badge/Tests-262%20Passed-brightgreen.svg)](tests/test_suite.js)
 
-[Live Website](https://digitalseva.pages.dev) • [Owner Portal](https://digitalseva.pages.dev/admin.html)
+[Live Website](https://digital-seva-website.pages.dev/) • [Owner Portal](https://digital-seva-website.pages.dev/admin.html)
 
 </div>
 
