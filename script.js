@@ -28,6 +28,12 @@ try {
     currentTheme = 'light';
 }
 
+// Cloudflare Turnstile state variables (must precede applyTheme to prevent TDZ ReferenceError)
+let turnstileSiteKey = '';
+let turnstileWidgetId = null;
+let currentTurnstileToken = null;
+let isConfigLoaded = false;
+
 function applyTheme(theme) {
     currentTheme = theme;
     document.documentElement.setAttribute('data-theme', theme);
@@ -479,11 +485,6 @@ function formatBytes(bytes) {
 // ========================================================
 // 6b. Cloudflare Turnstile Verification System
 // ========================================================
-let turnstileSiteKey = '';
-let turnstileWidgetId = null;
-let currentTurnstileToken = null;
-let isConfigLoaded = false;
-
 function showTurnstileHelp(msg, type = 'error') {
     const helpEl = document.getElementById('turnstileHelp');
     if (!helpEl) return;

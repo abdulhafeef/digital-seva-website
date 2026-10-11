@@ -26,6 +26,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn, execSync } = require('child_process');
+const vm = require('vm');
 
 const TEST_PORT = 8011;
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -75,6 +76,82 @@ async function runAllTests() {
             assert(true, 'Frontend JS files (data.js, translations.js, script.js) compile cleanly');
         } catch (e) {
             assert(false, `Frontend JS syntax check failed: ${e.message}`);
+        }
+
+        // Regression Test: Frontend runtime initialization and TDZ safety
+        // Ensure Turnstile state variables are initialized prior to applyTheme invocation,
+        // preventing temporal-dead-zone ReferenceErrors when script.js executes.
+        try {
+            const rootDir = path.resolve(__dirname, '..');
+            const translationsCode = fs.readFileSync(path.join(rootDir, 'translations.js'), 'utf8');
+            const dataCode = fs.readFileSync(path.join(rootDir, 'data.js'), 'utf8');
+            const scriptCode = fs.readFileSync(path.join(rootDir, 'script.js'), 'utf8');
+
+            const domState = { attributes: {}, listeners: {} };
+            const storage = {};
+
+            const context = vm.createContext({
+                window: {
+                    matchMedia: () => ({ matches: false }),
+                    location: { hostname: 'localhost' },
+                    addEventListener: (event, handler) => { domState.listeners[event] = handler; }
+                },
+                document: {
+                    documentElement: {
+                        setAttribute: (name, val) => { domState.attributes[name] = val; },
+                        getAttribute: (name) => domState.attributes[name] || null,
+                        scrollHeight: 1000,
+                        clientHeight: 800
+                    },
+                    getElementById: () => null,
+                    querySelectorAll: () => [],
+                    querySelector: () => null,
+                    addEventListener: (event, handler) => { domState.listeners[event] = handler; },
+                    createElement: () => ({ style: {}, appendChild: () => {} }),
+                    body: { appendChild: () => {}, style: {} }
+                },
+                localStorage: {
+                    getItem: (key) => storage[key] || null,
+                    setItem: (key, val) => { storage[key] = String(val); }
+                },
+                console: { log: () => {}, warn: () => {}, error: () => {} }
+            });
+            context.window.window = context.window;
+            context.window.document = context.document;
+
+            // Run prerequisites as ordered in index.html
+            vm.runInContext(translationsCode, context);
+            vm.runInContext(dataCode, context);
+
+            // Execute script.js top-level code
+            vm.runInContext(scriptCode, context);
+            assert(true, 'script.js executes without temporal-dead-zone ReferenceError during top-level initialization');
+
+            // Verify theme application succeeded
+            assert(domState.attributes['data-theme'] === 'light', 'Initial applyTheme(currentTheme) sets data-theme to light');
+
+            // Verify subsequent applyTheme calls succeed without TDZ error
+            vm.runInContext("applyTheme('dark');", context);
+            assert(domState.attributes['data-theme'] === 'dark', 'applyTheme("dark") updates data-theme attribute');
+
+            // Verify declaration order: Turnstile variables must precede applyTheme invocation
+            const applyThemeIndex = scriptCode.indexOf('applyTheme(currentTheme);');
+            const widgetIdDeclIndex = scriptCode.indexOf('let turnstileWidgetId');
+            const siteKeyDeclIndex = scriptCode.indexOf('let turnstileSiteKey');
+            const tokenDeclIndex = scriptCode.indexOf('let currentTurnstileToken');
+            const configLoadedDeclIndex = scriptCode.indexOf('let isConfigLoaded');
+
+            assert(applyThemeIndex > 0, 'applyTheme(currentTheme) invocation found in script.js');
+            assert(widgetIdDeclIndex !== -1 && widgetIdDeclIndex < applyThemeIndex, 'turnstileWidgetId declared before applyTheme(currentTheme) call');
+            assert(siteKeyDeclIndex !== -1 && siteKeyDeclIndex < applyThemeIndex, 'turnstileSiteKey declared before applyTheme(currentTheme) call');
+            assert(tokenDeclIndex !== -1 && tokenDeclIndex < applyThemeIndex, 'currentTurnstileToken declared before applyTheme(currentTheme) call');
+            assert(configLoadedDeclIndex !== -1 && configLoadedDeclIndex < applyThemeIndex, 'isConfigLoaded declared before applyTheme(currentTheme) call');
+
+            // Verify no duplicate declarations
+            const secondWidgetDeclIndex = scriptCode.indexOf('let turnstileWidgetId', widgetIdDeclIndex + 1);
+            assert(secondWidgetDeclIndex === -1, 'No duplicate let turnstileWidgetId declaration in script.js');
+        } catch (e) {
+            assert(false, `Frontend runtime initialization failed: ${e.message}`);
         }
 
         // -----------------------------------------------------
