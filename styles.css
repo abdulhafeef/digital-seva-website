@@ -1354,14 +1354,16 @@ select:focus-visible {
     gap: 22px;
 }
 
-.option-b-card {
+.option-whatsapp-card,
+.option-a-card {
     background: var(--success-surface);
     border: 1px solid rgba(5, 150, 105, 0.25);
     border-radius: var(--radius-lg);
     padding: 22px;
 }
 
-.option-b-header, .option-a-header {
+.option-a-header,
+.option-b-header {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1396,7 +1398,8 @@ select:focus-visible {
     font-size: 0.95rem;
 }
 
-.option-a-card {
+.option-form-card,
+.option-b-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);

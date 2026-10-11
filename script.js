@@ -336,7 +336,7 @@ function renderModalContent(serviceId, variantId) {
         }
     }
 
-    // WhatsApp Prefilled Link for Option B
+    // WhatsApp Prefilled Link for Option A
     const modalWhatsAppBtn = document.getElementById('modalWhatsAppBtn');
     if (modalWhatsAppBtn) {
         const serviceName = getTranslation(currentLang, `services.items.${serviceId}.title`) || serviceId;
@@ -627,7 +627,7 @@ function showWhatsAppFallbackNotice(name, phone, notes, message) {
 }
 
 // ========================================================
-// 7. Customer Enquiry Form Submission (Option A)
+// 7. Customer Enquiry Form Submission (Option B)
 // ========================================================
 const enquiryForm = document.getElementById('enquiryForm');
 const submitEnquiryBtn = document.getElementById('submitEnquiryBtn');

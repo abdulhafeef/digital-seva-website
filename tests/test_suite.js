@@ -202,6 +202,27 @@ async function runAllTests() {
         const consentKn = getTranslation('kn', 'modal.privacyConsentText');
         assert(consentKn && consentKn.includes('90 ದಿನಗಳ'), 'KN privacy consent text details 90-day retention policy');
 
+        // Modal Options: Option A (WhatsApp) and Option B (Upload Supporting Documents)
+        const optATitleEn = getTranslation('en', 'modal.optionATitle');
+        const optBTitleEn = getTranslation('en', 'modal.optionBTitle');
+        assert(Boolean(optATitleEn && optATitleEn.includes('Option A') && optATitleEn.includes('WhatsApp')), 'EN Option A title is WhatsApp: Option A — Contact via WhatsApp');
+        assert(Boolean(optBTitleEn && optBTitleEn.includes('Option B') && optBTitleEn.includes('Upload')), 'EN Option B title is Document Upload: Option B — Upload Supporting Documents');
+
+        const optATitleKn = getTranslation('kn', 'modal.optionATitle');
+        const optBTitleKn = getTranslation('kn', 'modal.optionBTitle');
+        assert(Boolean(optATitleKn && optATitleKn.includes('ವಿಧಾನ ಎ') && optATitleKn.includes('ವಾಟ್ಸಾಪ್')), 'KN Option A title is WhatsApp: ವಿಧಾನ ಎ — ನೇರವಾಗಿ ವಾಟ್ಸಾಪ್ ಮೂಲಕ ಸಂಪರ್ಕಿಸಿ');
+        assert(Boolean(optBTitleKn && optBTitleKn.includes('ವಿಧಾನ ಬಿ') && optBTitleKn.includes('ಅಪ್‌ಲೋಡ್')), 'KN Option B title is Document Upload: ವಿಧಾನ ಬಿ — ಪೂರಕ ದಾಖಲೆಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ');
+
+        // Modal DOM order in index.html: Option A (WhatsApp) must precede Option B (Upload Documents)
+        const indexHtmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+        const optAIndex = indexHtmlContent.indexOf('Option A — Contact via WhatsApp');
+        const optBIndex = indexHtmlContent.indexOf('Option B — Upload Supporting Documents');
+        assert(optAIndex !== -1 && optBIndex !== -1 && optAIndex < optBIndex, 'Modal DOM order: Option A (WhatsApp) precedes Option B (Document Upload) in index.html');
+
+        const waBtnIndex = indexHtmlContent.indexOf('id="modalWhatsAppBtn"');
+        const formIndex = indexHtmlContent.indexOf('id="enquiryForm"');
+        assert(waBtnIndex !== -1 && formIndex !== -1 && waBtnIndex < formIndex, 'Modal WhatsApp button appears before enquiry form in index.html');
+
         // -----------------------------------------------------
         // 3. SECURITY UNIT TESTS: TIMING-SAFE COMPARISON & PRODUCTION STARTUP
         // -----------------------------------------------------
