@@ -74,7 +74,8 @@ export async function executeRetentionCleanup(env) {
             }
 
             try {
-                const delRes = await fetch(`${url}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(storagePath)}`, {
+                const cleanStoragePath = String(storagePath).replace(/%2F/gi, '/').split('/').filter(Boolean).map(encodeURIComponent).join('/');
+                const delRes = await fetch(`${url}/storage/v1/object/${STORAGE_BUCKET}/${cleanStoragePath}`, {
                     method: 'DELETE',
                     headers: {
                         'apikey': serviceRoleKey,

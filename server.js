@@ -755,6 +755,7 @@ const server = http.createServer(async (req, res) => {
                             fs.writeFileSync(storagePath, part.data);
 
                             uploadedFiles.push({
+                                id: fileId,
                                 fileId: fileId,
                                 slotName: part.fieldName,
                                 originalName: path.basename(part.filename).replace(/[^a-zA-Z0-9._-]/g, '_'),
@@ -967,30 +968,64 @@ const server = http.createServer(async (req, res) => {
         }
 
         const parts = pathname.split('/').filter(Boolean);
-        // expected: ['api', 'admin', 'document', enquiryId, storedFilename]
-        if (parts.length < 5) {
+        // expected: ['api', 'admin', 'document', documentId] OR ['api', 'admin', 'document', enquiryId, storedFilename]
+        if (parts.length < 4) {
             res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
             res.end('Invalid document path');
             return;
         }
 
-        const enquiryId = parts[3];
-        const storedFilename = path.basename(parts[4]);
-
         try {
             const enquiries = getEnquiries();
-            const enquiry = enquiries.find(e => e.enquiryId === enquiryId);
-            if (!enquiry) {
-                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
-                res.end('Enquiry not found');
-                return;
-            }
+            let fileRecord = null;
+            let storedFilename = '';
 
-            const fileRecord = enquiry.files && enquiry.files.find(f => f.storedFilename === storedFilename);
-            if (!fileRecord) {
-                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
-                res.end('File record not found');
-                return;
+            if (parts.length === 4) {
+                // Route: GET /api/admin/document/:documentId
+                const docId = parts[3];
+                for (const enq of enquiries) {
+                    if (enq.files && Array.isArray(enq.files)) {
+                        const found = enq.files.find(f =>
+                            (f.id && f.id === docId) ||
+                            (f.fileId && f.fileId === docId) ||
+                            f.storedFilename === docId ||
+                            path.basename(f.storedFilename) === docId
+                        );
+                        if (found) {
+                            fileRecord = found;
+                            storedFilename = path.basename(found.storedFilename);
+                            break;
+                        }
+                    }
+                }
+                if (!fileRecord) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+                    res.end('Document record not found');
+                    return;
+                }
+            } else {
+                // Route: GET /api/admin/document/:enquiryId/:storedFilename
+                const enquiryId = parts[3];
+                storedFilename = path.basename(parts.slice(4).join('/'));
+
+                const enquiry = enquiries.find(e => e.enquiryId === enquiryId);
+                if (!enquiry) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+                    res.end('Enquiry not found');
+                    return;
+                }
+
+                fileRecord = enquiry.files && enquiry.files.find(f =>
+                    f.storedFilename === storedFilename ||
+                    (f.id && f.id === storedFilename) ||
+                    (f.fileId && f.fileId === storedFilename) ||
+                    path.basename(f.storedFilename) === storedFilename
+                );
+                if (!fileRecord) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+                    res.end('File record not found');
+                    return;
+                }
             }
 
             const filePath = path.join(UPLOADS_DIR, storedFilename);
@@ -1003,7 +1038,7 @@ const server = http.createServer(async (req, res) => {
             const fileBuffer = fs.readFileSync(filePath);
             res.writeHead(200, {
                 'Content-Type': fileRecord.mimeType || 'application/octet-stream',
-                'Content-Disposition': `inline; filename="${fileRecord.originalName}"`,
+                'Content-Disposition': `inline; filename="${fileRecord.originalName || storedFilename}"`,
                 'Content-Length': fileBuffer.length,
                 'Cache-Control': 'private, no-cache, no-store, must-revalidate',
                 ...SECURITY_HEADERS

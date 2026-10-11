@@ -532,6 +532,24 @@ async function runAllTests() {
             const unauthDocRes = await httpGet(`/api/admin/document/${pdfEnquiryId}/${storedFile.storedFilename}`);
             assert(unauthDocRes.statusCode === 401, 'Unauthenticated document request returns 401 Unauthorized');
 
+            // 4. Authorized download via document-ID route (/api/admin/document/:documentId)
+            const docId = storedFile.id || storedFile.fileId;
+            const docIdRes = await httpGet(`/api/admin/document/${docId}`, {
+                'Authorization': `Bearer ${adminToken}`
+            });
+            assert(docIdRes.statusCode === 200, 'Local server GET /api/admin/document/:documentId with Bearer header returns 200 OK');
+            assert(docIdRes.headers['content-type'] === 'application/pdf', 'Document-ID route Content-Type is application/pdf');
+
+            // 5. Unauthenticated download via document-ID route rejected
+            const unauthDocIdRes = await httpGet(`/api/admin/document/${docId}`);
+            assert(unauthDocIdRes.statusCode === 401, 'Local server GET /api/admin/document/:documentId without auth returns 401');
+
+            // 6. Non-existent document ID returns 404
+            const missingDocIdRes = await httpGet(`/api/admin/document/00000000-0000-0000-0000-000000000000`, {
+                'Authorization': `Bearer ${adminToken}`
+            });
+            assert(missingDocIdRes.statusCode === 404, 'Local server GET /api/admin/document/:documentId for non-existent ID returns 404');
+
             // Deletion of enquiry and file
             const storedFilePath = path.join(liveTestStorage, storedFile.storedFilename);
             assert(fs.existsSync(storedFilePath), 'Uploaded physical file exists on disk prior to deletion');
@@ -789,6 +807,97 @@ async function runAllTests() {
         });
         const traversalDocRes = await documentEndpoint.onRequestGet({ request: traversalDocReq, env: testEnv, params: { path: ['..', 'secret'] } });
         assert(traversalDocRes.status === 400, 'Pages Functions document endpoint rejects directory traversal (..) with 400');
+
+        // 9b. GET /api/admin/document/:documentId (UUID Route & Path Duplication Regression Tests)
+        const unauthDocIdReq = new Request('http://localhost/api/admin/document/12345678-1234-1234-1234-123456789abc');
+        const unauthDocIdRes = await documentEndpoint.onRequestGet({ request: unauthDocIdReq, env: testEnv, params: { path: ['12345678-1234-1234-1234-123456789abc'] } });
+        assert(unauthDocIdRes.status === 401, 'Pages Functions document-ID route without auth returns 401 Unauthorized');
+
+        const originalFetchDocTest = globalThis.fetch;
+        let lastStorageFetchUrl = '';
+        try {
+            globalThis.fetch = async (url, opts) => {
+                const urlStr = (url || '').toString();
+                if (urlStr.includes('/rest/v1/enquiry_documents')) {
+                    if (urlStr.includes('12345678-1234-1234-1234-123456789abc')) {
+                        return new Response(JSON.stringify([{
+                            id: '12345678-1234-1234-1234-123456789abc',
+                            enquiry_id: 'mock-enquiry-uuid',
+                            storage_path: 'DS-20261011-TEST/doc-uuid.pdf',
+                            original_name: 'test_passport_doc.pdf',
+                            mime_type: 'application/pdf',
+                            size_bytes: 2048,
+                            slot_id: 'passport'
+                        }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                    }
+                    if (urlStr.includes('storage_path=eq.')) {
+                        return new Response(JSON.stringify([{
+                            id: '12345678-1234-1234-1234-123456789abc',
+                            enquiry_id: 'mock-enquiry-uuid',
+                            storage_path: 'DS-20261011-TEST/doc-uuid.pdf',
+                            original_name: 'test_passport_doc.pdf',
+                            mime_type: 'application/pdf',
+                            size_bytes: 2048,
+                            slot_id: 'passport'
+                        }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                    }
+                    return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                if (urlStr.includes('/storage/v1/object/customer-documents/')) {
+                    lastStorageFetchUrl = urlStr;
+                    return new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/pdf' }
+                    });
+                }
+                return originalFetchDocTest(url, opts);
+            };
+
+            const docTestEnv = {
+                ...testEnv,
+                SUPABASE_URL: 'https://mock.supabase.co',
+                SUPABASE_SERVICE_ROLE_KEY: 'mock_service_role_key_for_test'
+            };
+
+            // Test missing document UUID in database
+            const missingDocReq = new Request('http://localhost/api/admin/document/00000000-0000-0000-0000-000000000000', {
+                headers: { 'Authorization': `Bearer ${loginValidData.token}` }
+            });
+            const missingDocRes = await documentEndpoint.onRequestGet({
+                request: missingDocReq,
+                env: docTestEnv,
+                params: { path: ['00000000-0000-0000-0000-000000000000'] }
+            });
+            assert(missingDocRes.status === 404, 'Pages Functions document endpoint returns 404 for missing document UUID');
+
+            // Test successful retrieval via document UUID route
+            const validDocReq = new Request('http://localhost/api/admin/document/12345678-1234-1234-1234-123456789abc', {
+                headers: { 'Authorization': `Bearer ${loginValidData.token}` }
+            });
+            const validDocRes = await documentEndpoint.onRequestGet({
+                request: validDocReq,
+                env: docTestEnv,
+                params: { path: ['12345678-1234-1234-1234-123456789abc'] }
+            });
+            assert(validDocRes.status === 200, 'Pages Functions document-ID route returns 200 OK');
+            assert(lastStorageFetchUrl.endsWith('/customer-documents/DS-20261011-TEST/doc-uuid.pdf'), 'Storage URL correctly targets customer-documents/DS-20261011-TEST/doc-uuid.pdf');
+            assert(!lastStorageFetchUrl.includes('DS-20261011-TEST/DS-20261011-TEST'), 'Document-ID route strictly avoids duplicating enquiry-reference directory');
+            assert(validDocRes.headers.get('Content-Disposition').includes('test_passport_doc.pdf'), 'Document-ID route preserves original filename in Content-Disposition');
+            assert(validDocRes.headers.get('Cache-Control').includes('private'), 'Document response enforces private Cache-Control header');
+
+            // Test multi-segment request with already-prefixed filename does not duplicate directory
+            const multiSegmentReq = new Request('http://localhost/api/admin/document/DS-20261011-TEST/DS-20261011-TEST/doc-uuid.pdf', {
+                headers: { 'Authorization': `Bearer ${loginValidData.token}` }
+            });
+            await documentEndpoint.onRequestGet({
+                request: multiSegmentReq,
+                env: docTestEnv,
+                params: { path: ['DS-20261011-TEST', 'DS-20261011-TEST/doc-uuid.pdf'] }
+            });
+            assert(!lastStorageFetchUrl.includes('DS-20261011-TEST/DS-20261011-TEST'), 'Multi-segment request prevents duplicating enquiry-reference directory');
+        } finally {
+            globalThis.fetch = originalFetchDocTest;
+        }
 
         // 10. DELETE /api/admin/enquiry/:id (Unauthenticated)
         const unauthDelReq = new Request('http://localhost/api/admin/enquiry/DS-TEST', { method: 'DELETE' });

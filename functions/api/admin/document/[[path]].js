@@ -65,25 +65,52 @@ export async function onRequestGet(context) {
             displayFilename = docMeta.original_name || 'document';
             mimeType = docMeta.mime_type || 'application/octet-stream';
         } else {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(docIdentifier);
+            if (isUuid) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    error: 'Document record not found in database.'
+                }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+            }
             // Treat as direct storage path if formatted as ref/filename
             storagePath = docIdentifier;
         }
     } else {
         // Multiple segments: /api/admin/document/:enquiryId/:filename
         const enquiryRef = pathSegments[0];
-        const filename = pathSegments.slice(1).join('/');
-        storagePath = `${enquiryRef}/${filename}`;
+        let filename = pathSegments.slice(1).join('/');
 
-        // Attempt metadata lookup for original display filename
-        const docMeta = await getDocumentMetadata(env, storagePath);
-        if (docMeta) {
-            displayFilename = docMeta.original_name || filename;
-            mimeType = docMeta.mime_type || mimeType;
-        } else {
-            displayFilename = filename;
-            if (filename.endsWith('.pdf')) mimeType = 'application/pdf';
-            else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) mimeType = 'image/jpeg';
-            else if (filename.endsWith('.png')) mimeType = 'image/png';
+        // If second segment is a UUID, attempt UUID lookup first
+        const possibleUuid = pathSegments[1];
+        if (pathSegments.length === 2 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(possibleUuid)) {
+            const uuidMeta = await getDocumentMetadata(env, possibleUuid);
+            if (uuidMeta) {
+                storagePath = uuidMeta.storage_path;
+                displayFilename = uuidMeta.original_name || 'document';
+                mimeType = uuidMeta.mime_type || mimeType;
+            }
+        }
+
+        if (!storagePath) {
+            // Prevent duplicating the enquiry reference if filename already starts with it
+            if (filename.startsWith(`${enquiryRef}/`)) {
+                storagePath = filename;
+            } else {
+                storagePath = `${enquiryRef}/${filename}`;
+            }
+
+            // Attempt metadata lookup for original display filename
+            const docMeta = await getDocumentMetadata(env, storagePath);
+            if (docMeta) {
+                storagePath = docMeta.storage_path || storagePath;
+                displayFilename = docMeta.original_name || filename;
+                mimeType = docMeta.mime_type || mimeType;
+            } else {
+                displayFilename = filename;
+                if (filename.endsWith('.pdf')) mimeType = 'application/pdf';
+                else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (filename.endsWith('.png')) mimeType = 'image/png';
+            }
         }
     }
 

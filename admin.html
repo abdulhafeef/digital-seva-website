@@ -305,13 +305,18 @@
             enquiriesTableBody.innerHTML = list.map(item => {
                 const date = new Date(item.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
                 const docsHtml = (item.files && item.files.length > 0)
-                    ? item.files.map(f => `
+                    ? item.files.map(f => {
+                        const docId = f.id || f.fileId || '';
+                        const safeDocId = escapeHtml(docId);
+                        const safeOriginalName = escapeHtml(f.originalName || 'document').replace(/'/g, "\\'");
+                        return `
                         <button type="button" class="doc-chip"
-                           onclick="viewDocument('${escapeHtml(item.enquiryId)}', '${encodeURIComponent(f.storedFilename)}', '${escapeHtml(f.originalName)}')"
+                           onclick="viewDocument('${safeDocId}', '${safeOriginalName}')"
                            title="Size: ${(f.sizeBytes / 1024).toFixed(1)} KB (Click to view securely)">
                            📄 ${escapeHtml(f.originalName)}
                         </button>
-                      `).join('')
+                      `;
+                    }).join('')
                     : '<span style="color: var(--text-muted); font-size: 0.82rem;">None</span>';
 
                 return `
@@ -338,12 +343,15 @@
             }).join('');
         }
 
-        async function viewDocument(enquiryId, encodedStoredFilename, originalName) {
-            const storedFilename = decodeURIComponent(encodedStoredFilename);
+        async function viewDocument(documentId, originalName) {
+            if (!documentId) {
+                alert('Document identifier is missing.');
+                return;
+            }
             try {
                 const headers = {};
                 if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-                const res = await fetch(`/api/admin/document/${encodeURIComponent(enquiryId)}/${encodeURIComponent(storedFilename)}`, {
+                const res = await fetch(`/api/admin/document/${encodeURIComponent(documentId)}`, {
                     headers: headers,
                     credentials: 'same-origin'
                 });
@@ -356,7 +364,22 @@
                     return;
                 }
                 if (!res.ok) {
-                    alert('Failed to retrieve document: ' + res.statusText);
+                    let errMsg = '';
+                    try {
+                        const errJson = await res.json();
+                        if (errJson && errJson.error) {
+                            errMsg = errJson.error;
+                        }
+                    } catch {
+                        try {
+                            const errText = await res.text();
+                            if (errText && errText.length < 200 && !errText.includes('stack')) {
+                                errMsg = errText.trim();
+                            }
+                        } catch {}
+                    }
+                    const detail = errMsg ? `: ${errMsg}` : (res.statusText ? `: ${res.statusText}` : '');
+                    alert(`Failed to retrieve document [HTTP ${res.status}]${detail}`);
                     return;
                 }
                 const blob = await res.blob();
@@ -365,7 +388,7 @@
                 if (!win) {
                     const a = document.createElement('a');
                     a.href = blobUrl;
-                    a.download = originalName || storedFilename;
+                    a.download = originalName || 'document';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

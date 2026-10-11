@@ -96,6 +96,20 @@ export async function insertEnquiryDocuments(env, documents) {
 }
 
 /**
+ * Formats a clean object path for Supabase Storage REST API,
+ * encoding individual path segments while preserving '/' delimiters.
+ */
+function formatStorageEndpoint(url, bucket, storagePath) {
+    const cleanPath = String(storagePath)
+        .replace(/%2F/gi, '/')
+        .split('/')
+        .filter(Boolean)
+        .map(encodeURIComponent)
+        .join('/');
+    return `${url}/storage/v1/object/${bucket}/${cleanPath}`;
+}
+
+/**
  * Uploads a private file buffer into the private Supabase Storage bucket.
  *
  * @param {object} env
@@ -110,7 +124,7 @@ export async function uploadStorageDocument(env, storagePath, fileBytes, mimeTyp
         throw new Error('Supabase Storage is not configured.');
     }
 
-    const endpoint = `${url}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(storagePath)}`;
+    const endpoint = formatStorageEndpoint(url, STORAGE_BUCKET, storagePath);
     const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -143,7 +157,7 @@ export async function downloadStorageDocument(env, storagePath) {
         throw new Error('Supabase Storage is not configured.');
     }
 
-    const endpoint = `${url}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(storagePath)}`;
+    const endpoint = formatStorageEndpoint(url, STORAGE_BUCKET, storagePath);
     const res = await fetch(endpoint, {
         method: 'GET',
         headers: {
@@ -166,7 +180,7 @@ export async function deleteStorageDocument(env, storagePath) {
     const { url, serviceRoleKey, isConfigured } = getSupabaseConfig(env);
     if (!isConfigured) return false;
 
-    const endpoint = `${url}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(storagePath)}`;
+    const endpoint = formatStorageEndpoint(url, STORAGE_BUCKET, storagePath);
     const res = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
@@ -283,10 +297,11 @@ export async function getDocumentMetadata(env, docIdentifier) {
     const { url, serviceRoleKey, isConfigured } = getSupabaseConfig(env);
     if (!isConfigured) return null;
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(docIdentifier);
+    const cleanIdentifier = decodeURIComponent(String(docIdentifier)).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanIdentifier);
     const filter = isUuid
-        ? `id=eq.${encodeURIComponent(docIdentifier)}`
-        : `storage_path=eq.${encodeURIComponent(docIdentifier)}`;
+        ? `id=eq.${encodeURIComponent(cleanIdentifier)}`
+        : `storage_path=eq.${encodeURIComponent(cleanIdentifier)}`;
 
     const endpoint = `${url}/rest/v1/enquiry_documents?${filter}&select=id,enquiry_id,storage_path,original_name,mime_type,size_bytes,slot_id`;
     const res = await fetch(endpoint, {
